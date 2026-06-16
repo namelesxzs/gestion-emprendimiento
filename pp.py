@@ -1,544 +1,603 @@
-"""
-🚀 Sistema de Acompañamiento Empresarial UIE - Cadena de Valor
-Desarrollado con Streamlit + openpyxl + plotly
-Ejecutar con: streamlit run app_uie.py
-"""
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from openpyxl import load_workbook, Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
-from datetime import datetime, date
-import os
-import io
 
-# ─────────────────────────────────────────────
-# CONFIGURACIÓN GENERAL
-# ─────────────────────────────────────────────
-st.set_page_config(
-    page_title="UIE - Cadena de Valor",
-    page_icon="🌱",
-    layout="wide",
-    initial_sidebar_state="expanded",
+st.set_page_config(page_title="Dashboard Hosti 🍬", layout="wide", page_icon="🍬")
+
+# ─── TABLAS DE PRECIOS ────────────────────────────────────────────────────────
+PRECIO_INICIAL   = {60: 42500, 30: 38600, 10: 27800, 5: 18000}
+PRECIO_DESCUENTO = {60: 32000, 30: 28600, 10: 22000, 5: 14000}
+PRECIO_DIST      = 12000       # distribuidor paga por paquete (60 mg)
+COSTO_PROD       = {60: 9240, 30: 8265, 10: 6535, 5: 5665}
+COSTO_DIST       = 5302        # costo producción cuando es pedido de distribuidor
+
+ORDEN_MESES = ["enero","febrero","marzo","abril","mayo","junio",
+               "julio","agosto","septiembre","octubre","noviembre","diciembre"]
+
+# ─── CARGA ────────────────────────────────────────────────────────────────────
+@st.cache_data
+def cargar(source):
+    raw = pd.read_excel(source, sheet_name=0, header=0, usecols="A:L")
+    raw.columns = [c.strip() for c in raw.columns]
+
+    raw["mes"]          = raw["mes"].astype(str).str.strip().str.lower()
+    raw["clientes"]     = raw["clientes"].astype(str).str.strip().str.lower()
+    raw["numero-id"]    = raw["numero-id"].astype(str).str.strip()
+    raw["categoria_mg"] = pd.to_numeric(raw["categoria_mg"], errors="coerce")
+
+    for col in ["total_pagado-cliente","producto_precio","envio",
+                "ganancia","paquetes","precio+envio","propina","dia"]:
+        raw[col] = pd.to_numeric(raw[col], errors="coerce").fillna(0)
+
+    # Identificar distribuidor: camila con id 3207878778
+    raw["tipo"] = raw.apply(
+        lambda r: "Distribuidor"
+        if (r["clientes"] == "camila" and r["numero-id"] == "3207878778")
+        else "Cliente", axis=1
+    )
+
+    raw["mes_orden"] = raw["mes"].apply(
+        lambda m: ORDEN_MESES.index(m) if m in ORDEN_MESES else 99
+    )
+    raw = raw.sort_values(["mes_orden","dia"]).reset_index(drop=True)
+
+    # ── CONTEO UNO A UNO: cuántas veces aparece cada numero-id ──────────────
+    conteo_id = {}
+    for _, row in raw.iterrows():          # ← iteramos FILA A FILA
+        uid = row["numero-id"]
+        conteo_id[uid] = conteo_id.get(uid, 0) + 1
+
+    raw["veces_compra"] = raw["numero-id"].map(conteo_id)
+    raw["recurrencia"]  = raw["veces_compra"].apply(
+        lambda v: "Recurrente" if v > 1 else "Nuevo"
+    )
+
+    # ── Precio esperado por unidad según tipo ────────────────────────────────
+    def precio_unitario_inicial(row):
+        if row["tipo"] == "Distribuidor":
+            return PRECIO_DIST
+        return PRECIO_INICIAL.get(int(row["categoria_mg"]), 0)
+
+    def precio_unitario_descuento(row):
+        if row["tipo"] == "Distribuidor":
+            return PRECIO_DIST
+        return PRECIO_DESCUENTO.get(int(row["categoria_mg"]), 0)
+
+    raw["precio_unitario_ini"] = raw.apply(precio_unitario_inicial, axis=1)
+    raw["precio_unitario_des"] = raw.apply(precio_unitario_descuento, axis=1)
+    raw["ingreso_esperado_ini"] = raw["precio_unitario_ini"] * raw["paquetes"]
+    raw["ingreso_esperado_des"] = raw["precio_unitario_des"] * raw["paquetes"]
+
+    return raw, conteo_id
+
+# ─── SIDEBAR ─────────────────────────────────────────────────────────────────
+st.sidebar.markdown("## 🍬 Hosti Dashboard")
+uploaded = st.sidebar.file_uploader("📂 Cargar hosti.xlsx", type=["xlsx"])
+
+RUTA_DEFAULT = "hosti.xlsx"
+
+if uploaded:
+    df, conteo_id = cargar(uploaded)
+else:
+    try:
+        df, conteo_id = cargar(RUTA_DEFAULT)
+    except Exception:
+        try:
+            df, conteo_id = cargar("hosti.xlsx")
+        except Exception:
+            st.warning("⬅️ Carga tu archivo **hosti.xlsx** desde la barra lateral.")
+            st.stop()
+
+meses_doc = [m for m in ORDEN_MESES if m in df["mes"].values]
+n_meses   = len(meses_doc)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🔍 Filtros")
+mes_sel  = st.sidebar.multiselect("Mes", meses_doc, default=meses_doc)
+tipo_sel = st.sidebar.multiselect("Tipo", ["Cliente","Distribuidor"], default=["Cliente","Distribuidor"])
+
+dff = df[df["mes"].isin(mes_sel) & df["tipo"].isin(tipo_sel)].copy()
+
+dff_cli = dff[dff["tipo"] == "Cliente"]
+dff_dis = dff[dff["tipo"] == "Distribuidor"]
+dff_rec = dff[dff["recurrencia"] == "Recurrente"]
+dff_new = dff[dff["recurrencia"] == "Nuevo"]
+
+# ════════════════════════════════════════════════════════════════════════════
+# CONTEOS EXACTOS UNO A UNO (fila a fila, sin .count() ni len())
+# ════════════════════════════════════════════════════════════════════════════
+
+# Total facturas: sumamos 1 por cada fila
+total_facturas = 0
+ids_vistos = []
+for _, row in dff.iterrows():
+    total_facturas += 1
+    ids_vistos.append(row["numero-id"])
+
+# Clientes únicos: recorremos la lista uno a uno
+ids_unicos_set = set()
+ids_unicos_lista = []
+for uid in ids_vistos:
+    if uid not in ids_unicos_set:
+        ids_unicos_set.add(uid)
+        ids_unicos_lista.append(uid)
+total_clientes_unicos = len(ids_unicos_lista)
+
+# IDs recurrentes (global, sin filtro de mes)
+ids_rec_global = set()
+for uid, cnt in conteo_id.items():
+    if cnt > 1:
+        ids_rec_global.add(uid)
+
+# Tasa de recompra
+total_ids_global = 0
+for _ in conteo_id:
+    total_ids_global += 1
+tasa_recompra = (len(ids_rec_global) / total_ids_global * 100) if total_ids_global else 0
+
+# Conteos recurrentes/nuevos uno a uno en el filtro actual
+cnt_rec = 0; cnt_new = 0
+ven_rec = 0.0; ven_new = 0.0
+gan_rec = 0.0; gan_new = 0.0
+for _, row in dff.iterrows():
+    if row["recurrencia"] == "Recurrente":
+        cnt_rec += 1
+        ven_rec += row["total_pagado-cliente"]
+        gan_rec += row["ganancia"]
+    else:
+        cnt_new += 1
+        ven_new += row["total_pagado-cliente"]
+        gan_new += row["ganancia"]
+
+# Facturas cliente vs distribuidor uno a uno
+fc = 0
+for _, _ in dff_cli.iterrows():
+    fc += 1
+fd = 0
+for _, _ in dff_dis.iterrows():
+    fd += 1
+
+# KPIs financieros
+ingreso_bruto   = 0.0
+total_propinas  = 0.0
+total_envios    = 0.0
+total_ganancia  = 0.0
+paquetes_cli    = 0
+paquetes_dis    = 0
+
+for _, row in dff.iterrows():
+    ingreso_bruto  += row["total_pagado-cliente"]
+    total_propinas += row["propina"]
+    total_envios   += row["envio"]
+    total_ganancia += row["ganancia"]
+
+for _, row in dff_cli.iterrows():
+    paquetes_cli += int(row["paquetes"])
+for _, row in dff_dis.iterrows():
+    paquetes_dis += int(row["paquetes"])
+
+ganancia_neta = total_propinas + total_ganancia + total_envios
+prom_ingresos = ingreso_bruto / n_meses if n_meses else 0
+
+# ── Promedio de pedidos por mes ──────────────────────────────────────────────
+pedidos_por_mes = {}
+for _, row in dff.iterrows():
+    m = row["mes"]
+    pedidos_por_mes[m] = pedidos_por_mes.get(m, 0) + 1
+
+prom_pedidos_mes = 0.0
+if len(pedidos_por_mes) > 0:
+    total_ped_suma = 0
+    for v in pedidos_por_mes.values():
+        total_ped_suma += v
+    prom_pedidos_mes = total_ped_suma / len(pedidos_por_mes)
+
+# ════════════════════════════════════════════════════════════════════════════
+# HEADER
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("# 🍬 Dashboard Hosti — Análisis de Ventas")
+st.caption(
+    f"Conteo exacto fila a fila · "
+    f"**{total_facturas} facturas** · **{total_clientes_unicos} clientes únicos** "
+    f"(IDs contados uno a uno)"
+)
+st.markdown("---")
+
+# ════════════════════════════════════════════════════════════════════════════
+# 1. KPIs GLOBALES
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("## 📊 KPIs Globales")
+
+k = st.columns(4)
+k[0].metric("📦 Facturas (exacto)",       f"{total_facturas}")
+k[1].metric("👥 Clientes únicos (exacto)", f"{total_clientes_unicos}")
+k[2].metric("💰 Ingreso Bruto",            f"${ingreso_bruto:,.0f}")
+k[3].metric("🎁 Total Propinas",           f"${total_propinas:,.0f}")
+
+k2 = st.columns(4)
+k2[0].metric("📈 Ganancia Neta", f"${ganancia_neta:,.0f}",
+             help="Propina + Ganancia + Envío")
+k2[1].metric("📅 Prom. Ingreso/Mes", f"${prom_ingresos:,.0f}",
+             help=f"Ingreso acumulado ÷ {n_meses} meses en el documento")
+k2[2].metric("🔁 Tasa Recompra", f"{tasa_recompra:.1f}%",
+             help="IDs con más de 1 compra ÷ total IDs únicos")
+k2[3].metric("📦 Paquetes Totales", f"{paquetes_cli + paquetes_dis}")
+
+k3 = st.columns(4)
+k3[0].metric("🛒 Prom. Pedidos/Mes", f"{prom_pedidos_mes:.1f}",
+             help=f"Total pedidos ÷ {len(pedidos_por_mes)} meses con actividad")
+
+st.markdown("---")
+
+# ════════════════════════════════════════════════════════════════════════════
+# 2. CLIENTES vs DISTRIBUIDOR
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("## 🏷️ Clientes vs Distribuidor (Camila)")
+
+col_a, col_b, col_c = st.columns(3)
+
+with col_a:
+    st.markdown("### 👤 Clientes")
+    ing_cli = 0.0; gan_cli_sum = 0.0
+    for _, row in dff_cli.iterrows():
+        ing_cli += row["total_pagado-cliente"]
+        gan_cli_sum += row["ganancia"]
+    st.metric("Facturas (exacto)", fc)
+    st.metric("Ingreso", f"${ing_cli:,.0f}")
+    st.metric("Ganancia", f"${gan_cli_sum:,.0f}")
+    st.metric("Paquetes vendidos", paquetes_cli)
+
+with col_b:
+    st.markdown("### 🏭 Distribuidor (Camila)")
+    ing_dis = 0.0; gan_dis_sum = 0.0
+    for _, row in dff_dis.iterrows():
+        ing_dis += row["total_pagado-cliente"]
+        gan_dis_sum += row["ganancia"]
+    st.metric("Facturas (exacto)", fd)
+    st.metric("Ingreso", f"${ing_dis:,.0f}")
+    st.metric("Ganancia", f"${gan_dis_sum:,.0f}")
+    st.metric("Paquetes vendidos", paquetes_dis)
+
+with col_c:
+    st.markdown("### 🔁 Recurrencia")
+    total_ped = cnt_rec + cnt_new
+    pct_rec = cnt_rec / total_ped * 100 if total_ped else 0
+    pct_new = cnt_new / total_ped * 100 if total_ped else 0
+    st.metric("Pedidos Recurrentes", cnt_rec, f"{pct_rec:.1f}%")
+    st.metric("Ventas Recurrentes",  f"${ven_rec:,.0f}")
+    st.metric("Pedidos Nuevos",      cnt_new, f"{pct_new:.1f}%")
+    st.metric("Ventas Nuevos",       f"${ven_new:,.0f}")
+
+# Gráfico paquetes por mes
+st.markdown("#### 📦 Paquetes vendidos por Mes — Clientes vs Distribuidor")
+paq_mes = dff.groupby(["mes","mes_orden","tipo"])["paquetes"].sum().reset_index().sort_values("mes_orden")
+fig_paq = px.bar(paq_mes, x="mes", y="paquetes", color="tipo", barmode="group",
+                 color_discrete_map={"Cliente":"#4f8ef7","Distribuidor":"#e84393"},
+                 labels={"paquetes":"Paquetes","mes":"Mes"},
+                 category_orders={"mes": meses_doc})
+fig_paq.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+st.plotly_chart(fig_paq, use_container_width=True)
+
+st.markdown("---")
+
+# ════════════════════════════════════════════════════════════════════════════
+# 3. MARGEN POR PRODUCTO
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("## 🧮 Margen por Producto")
+
+filas_mg = []
+for mg in [5, 10, 30, 60]:
+    costo   = COSTO_PROD[mg]
+    p_ini   = PRECIO_INICIAL[mg]
+    p_des   = PRECIO_DESCUENTO[mg]
+    g_ini   = p_ini - costo
+    g_des   = p_des - costo
+    filas_mg.append({
+        "Producto":              f"{mg} mg",
+        "Costo Prod.":           costo,
+        "Precio Inicial":        p_ini,
+        "Gan. Inicial ($)":      g_ini,
+        "Margen Inicial (%)":    round(g_ini / p_ini * 100, 1),
+        "Precio Descuento":      p_des,
+        "Gan. Descuento ($)":    g_des,
+        "Margen Descuento (%)":  round(g_des / p_des * 100, 1),
+    })
+# Fila distribuidor (costo especial 5302)
+filas_mg.append({
+    "Producto":              "60 mg (Dist.)",
+    "Costo Prod.":           COSTO_DIST,
+    "Precio Inicial":        PRECIO_DIST,
+    "Gan. Inicial ($)":      PRECIO_DIST - COSTO_DIST,
+    "Margen Inicial (%)":    round((PRECIO_DIST - COSTO_DIST) / PRECIO_DIST * 100, 1),
+    "Precio Descuento":      PRECIO_DIST,
+    "Gan. Descuento ($)":    PRECIO_DIST - COSTO_DIST,
+    "Margen Descuento (%)":  round((PRECIO_DIST - COSTO_DIST) / PRECIO_DIST * 100, 1),
+})
+
+df_mg = pd.DataFrame(filas_mg)
+st.dataframe(df_mg, use_container_width=True)
+
+col_g1, col_g2 = st.columns(2)
+
+with col_g1:
+    st.markdown("#### 💵 Margen con Precio Inicial")
+    fig_ini = go.Figure()
+    fig_ini.add_bar(name="Precio Inicial",    x=df_mg["Producto"], y=df_mg["Precio Inicial"],
+                    marker_color="#4f8ef7", opacity=0.85)
+    fig_ini.add_bar(name="Costo Producción",  x=df_mg["Producto"], y=df_mg["Costo Prod."],
+                    marker_color="#f7a44f", opacity=0.85)
+    fig_ini.add_trace(go.Scatter(x=df_mg["Producto"], y=df_mg["Margen Inicial (%)"],
+                                 name="Margen %", yaxis="y2", mode="lines+markers",
+                                 line=dict(color="#2ca02c", width=3),
+                                 marker=dict(size=10, symbol="diamond")))
+    fig_ini.update_layout(
+        barmode="overlay",
+        yaxis=dict(title="Precio ($)"),
+        yaxis2=dict(title="Margen (%)", overlaying="y", side="right"),
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        legend=dict(orientation="h", y=-0.25)
+    )
+    st.plotly_chart(fig_ini, use_container_width=True)
+
+with col_g2:
+    st.markdown("#### 🏷️ Margen con Precio Descuento")
+    fig_des = go.Figure()
+    fig_des.add_bar(name="Precio Descuento",  x=df_mg["Producto"], y=df_mg["Precio Descuento"],
+                    marker_color="#e84393", opacity=0.85)
+    fig_des.add_bar(name="Costo Producción",  x=df_mg["Producto"], y=df_mg["Costo Prod."],
+                    marker_color="#f7a44f", opacity=0.85)
+    fig_des.add_trace(go.Scatter(x=df_mg["Producto"], y=df_mg["Margen Descuento (%)"],
+                                 name="Margen %", yaxis="y2", mode="lines+markers",
+                                 line=dict(color="#d62728", width=3),
+                                 marker=dict(size=10, symbol="diamond")))
+    fig_des.update_layout(
+        barmode="overlay",
+        yaxis=dict(title="Precio ($)"),
+        yaxis2=dict(title="Margen (%)", overlaying="y", side="right"),
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        legend=dict(orientation="h", y=-0.25)
+    )
+    st.plotly_chart(fig_des, use_container_width=True)
+
+st.markdown("---")
+
+# ════════════════════════════════════════════════════════════════════════════
+# 4. VENTAS Y GANANCIAS POR MES — RECURRENTES vs NUEVOS
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("## 📅 Ventas y Ganancias por Mes — Recurrentes vs Nuevos")
+
+ventas_mes = (dff.groupby(["mes","mes_orden","recurrencia"])["total_pagado-cliente"]
+              .sum().reset_index().sort_values("mes_orden"))
+fig_vm = px.bar(ventas_mes, x="mes", y="total_pagado-cliente", color="recurrencia",
+                barmode="group",
+                color_discrete_map={"Recurrente":"#4f8ef7","Nuevo":"#f76f4f"},
+                labels={"total_pagado-cliente":"Ventas ($)","mes":"Mes","recurrencia":"Tipo"},
+                title="💵 Ventas por Mes — Recurrentes vs Nuevos",
+                category_orders={"mes": meses_doc})
+fig_vm.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+st.plotly_chart(fig_vm, use_container_width=True)
+
+gan_mes = (dff.groupby(["mes","mes_orden","recurrencia"])["ganancia"]
+           .sum().reset_index().sort_values("mes_orden"))
+fig_gm = px.bar(gan_mes, x="mes", y="ganancia", color="recurrencia",
+                barmode="group",
+                color_discrete_map={"Recurrente":"#2ca02c","Nuevo":"#d62728"},
+                labels={"ganancia":"Ganancia ($)","mes":"Mes","recurrencia":"Tipo"},
+                title="📈 Ganancias por Mes — Recurrentes vs Nuevos",
+                category_orders={"mes": meses_doc})
+fig_gm.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+st.plotly_chart(fig_gm, use_container_width=True)
+
+st.markdown("---")
+
+# ════════════════════════════════════════════════════════════════════════════
+# 5. ACUMULATIVO POR MES
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("## 📈 Acumulativo de Ingresos por Mes")
+
+acu = (dff.groupby(["mes","mes_orden"])["total_pagado-cliente"]
+       .sum().reset_index().sort_values("mes_orden"))
+acu["Acumulado"] = acu["total_pagado-cliente"].cumsum()
+
+fig_acu = go.Figure()
+fig_acu.add_bar(x=acu["mes"], y=acu["total_pagado-cliente"],
+                name="Ingresos del Mes", marker_color="#4f8ef7")
+fig_acu.add_scatter(x=acu["mes"], y=acu["Acumulado"],
+                    name="Acumulado", mode="lines+markers", yaxis="y2",
+                    line=dict(color="#ff7f0e", width=3), marker=dict(size=10))
+fig_acu.update_layout(
+    title="Ingresos mensuales + línea acumulada",
+    yaxis=dict(title="Ingresos Mes ($)"),
+    yaxis2=dict(title="Acumulado ($)", overlaying="y", side="right"),
+    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+    legend=dict(orientation="h", y=-0.2)
+)
+st.plotly_chart(fig_acu, use_container_width=True)
+
+st.markdown("---")
+
+# ════════════════════════════════════════════════════════════════════════════
+# 6. PEDIDOS POR DÍA Y MES
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("## 📆 Pedidos por Día y Mes")
+
+# Conteo exacto uno a uno por día y mes
+conteo_dia = {}
+for _, row in dff.iterrows():
+    k_dia = (row["mes"], int(row["dia"]))
+    conteo_dia[k_dia] = conteo_dia.get(k_dia, 0) + 1
+
+registros_dia = [{"mes": k[0], "dia": k[1], "pedidos": v} for k, v in conteo_dia.items()]
+df_dia = pd.DataFrame(registros_dia)
+df_dia["mes_orden"] = df_dia["mes"].apply(lambda m: ORDEN_MESES.index(m) if m in ORDEN_MESES else 99)
+df_dia = df_dia.sort_values(["mes_orden","dia"])
+
+pivot = df_dia.pivot_table(index="mes", columns="dia", values="pedidos", fill_value=0)
+pivot = pivot.reindex([m for m in meses_doc if m in pivot.index])
+fig_heat = px.imshow(pivot,
+                     title="🗓️ Heatmap: Pedidos por Día y Mes",
+                     labels=dict(x="Día", y="Mes", color="Pedidos"),
+                     color_continuous_scale="Blues", aspect="auto")
+fig_heat.update_layout(paper_bgcolor="rgba(0,0,0,0)")
+st.plotly_chart(fig_heat, use_container_width=True)
+
+# Bar total por día
+conteo_solo_dia = {}
+for _, row in dff.iterrows():
+    d = int(row["dia"])
+    conteo_solo_dia[d] = conteo_solo_dia.get(d, 0) + 1
+
+df_bdia = pd.DataFrame(sorted(conteo_solo_dia.items()), columns=["dia","pedidos"])
+fig_bdia = px.bar(df_bdia, x="dia", y="pedidos",
+                  title="📊 Pedidos totales por Día (todos los meses)",
+                  labels={"dia":"Día del Mes","pedidos":"Pedidos"},
+                  color="pedidos", color_continuous_scale="Blues")
+fig_bdia.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+st.plotly_chart(fig_bdia, use_container_width=True)
+
+st.markdown("---")
+
+# ════════════════════════════════════════════════════════════════════════════
+# 7. MARGEN GANANCIA POR MES — DISTRIBUIDOR vs CLIENTES
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("## 🏭 Margen de Ganancia por Mes — Distribuidor vs Clientes")
+
+mg_tipo = (dff.groupby(["mes","mes_orden","tipo"])
+           .agg(ganancia=("ganancia","sum"), ingresos=("total_pagado-cliente","sum"))
+           .reset_index().sort_values("mes_orden"))
+mg_tipo["margen_%"] = (mg_tipo["ganancia"] / mg_tipo["ingresos"].replace(0, 1) * 100).round(1)
+
+col_m1, col_m2 = st.columns(2)
+with col_m1:
+    fig_mp = px.bar(mg_tipo, x="mes", y="margen_%", color="tipo", barmode="group",
+                    title="📊 Margen % por Mes",
+                    color_discrete_map={"Cliente":"#4f8ef7","Distribuidor":"#e84393"},
+                    labels={"margen_%":"Margen (%)","mes":"Mes"},
+                    category_orders={"mes": meses_doc})
+    fig_mp.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+    st.plotly_chart(fig_mp, use_container_width=True)
+
+with col_m2:
+    fig_mg2 = px.bar(mg_tipo, x="mes", y="ganancia", color="tipo", barmode="group",
+                     title="💵 Ganancia $ por Mes",
+                     color_discrete_map={"Cliente":"#2ca02c","Distribuidor":"#d62728"},
+                     labels={"ganancia":"Ganancia ($)","mes":"Mes"},
+                     category_orders={"mes": meses_doc})
+    fig_mg2.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+    st.plotly_chart(fig_mg2, use_container_width=True)
+
+st.markdown("---")
+
+# ════════════════════════════════════════════════════════════════════════════
+# 8. MARGEN PEDIDOS — RECURRENTES vs NUEVOS
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("## 🔁 Margen de Pedidos: Recurrentes vs Nuevos")
+
+col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+col_p1.metric("% Pedidos Recurrentes",  f"{pct_rec:.1f}%",  f"{cnt_rec} pedidos")
+col_p2.metric("% Pedidos Nuevos",       f"{pct_new:.1f}%",  f"{cnt_new} pedidos")
+col_p3.metric("Ventas Recurrentes",     f"${ven_rec:,.0f}")
+col_p4.metric("Ventas Nuevos",          f"${ven_new:,.0f}")
+
+col_m_rec = gan_rec / ven_rec * 100 if ven_rec else 0
+col_m_new = gan_new / ven_new * 100 if ven_new else 0
+st.caption(f"Margen ganancia recurrentes: **{col_m_rec:.1f}%** · "
+           f"Margen ganancia nuevos: **{col_m_new:.1f}%**")
+
+cp1, cp2 = st.columns(2)
+with cp1:
+    fig_pie1 = px.pie(
+        names=["Recurrente","Nuevo"], values=[cnt_rec, cnt_new],
+        title="🥧 % Pedidos: Recurrentes vs Nuevos",
+        color_discrete_sequence=["#4f8ef7","#f76f4f"]
+    )
+    st.plotly_chart(fig_pie1, use_container_width=True)
+with cp2:
+    fig_pie2 = px.pie(
+        names=["Recurrente","Nuevo"], values=[ven_rec, ven_new],
+        title="💰 % Ventas: Recurrentes vs Nuevos",
+        color_discrete_sequence=["#2ca02c","#d62728"]
+    )
+    st.plotly_chart(fig_pie2, use_container_width=True)
+
+st.markdown("---")
+
+# ════════════════════════════════════════════════════════════════════════════
+# 10. CANTIDAD DE PEDIDOS POR MES
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("## 🗓️ Cantidad de Pedidos por Mes")
+
+# Conteo exacto uno a uno por mes
+pedidos_mes_lista = []
+for m, cnt_m in sorted(pedidos_por_mes.items(), key=lambda x: ORDEN_MESES.index(x[0]) if x[0] in ORDEN_MESES else 99):
+    pedidos_mes_lista.append({"mes": m, "pedidos": cnt_m})
+
+df_ped_mes = pd.DataFrame(pedidos_mes_lista)
+
+col_pm1, col_pm2 = st.columns(2)
+
+with col_pm1:
+    fig_ped_mes = px.bar(
+        df_ped_mes, x="mes", y="pedidos",
+        title="📦 Pedidos por Mes",
+        labels={"mes": "Mes", "pedidos": "Cantidad de Pedidos"},
+        color="pedidos", color_continuous_scale="Blues",
+        category_orders={"mes": meses_doc}
+    )
+    fig_ped_mes.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+    st.plotly_chart(fig_ped_mes, use_container_width=True)
+
+with col_pm2:
+    # Línea de tendencia de pedidos por mes
+    fig_trend = go.Figure()
+    fig_trend.add_bar(
+        x=df_ped_mes["mes"], y=df_ped_mes["pedidos"],
+        name="Pedidos", marker_color="#4f8ef7", opacity=0.7
+    )
+    # Línea de promedio
+    fig_trend.add_hline(
+        y=prom_pedidos_mes, line_dash="dash",
+        line_color="#e84393", line_width=2,
+        annotation_text=f"Prom: {prom_pedidos_mes:.1f}",
+        annotation_position="top right"
+    )
+    fig_trend.update_layout(
+        title=f"📈 Pedidos por Mes + Promedio ({prom_pedidos_mes:.1f})",
+        xaxis_title="Mes",
+        yaxis_title="Pedidos",
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)"
+    )
+    st.plotly_chart(fig_trend, use_container_width=True)
+
+# Tabla resumen pedidos por mes
+st.markdown("#### 📋 Resumen de Pedidos por Mes")
+df_ped_mes_display = df_ped_mes.copy()
+df_ped_mes_display["vs promedio"] = df_ped_mes_display["pedidos"].apply(
+    lambda v: f"+{v - prom_pedidos_mes:.1f}" if v >= prom_pedidos_mes else f"{v - prom_pedidos_mes:.1f}"
+)
+st.dataframe(df_ped_mes_display, use_container_width=True)
+
+st.markdown("---")
+
+# ════════════════════════════════════════════════════════════════════════════
+# 9. TABLA DETALLE
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("## 📋 Detalle de Registros")
+
+# Contar UNO A UNO para el caption
+n_exacto = 0
+for _, _ in dff.iterrows():
+    n_exacto += 1
+
+st.caption(
+    f"Mostrando **{n_exacto} facturas** (contadas una a una) · "
+    f"**{total_clientes_unicos} clientes únicos** (IDs contados uno a uno)"
+)
+st.dataframe(
+    dff.drop(columns=["mes_orden","veces_compra"]).reset_index(drop=True),
+    use_container_width=True
 )
 
-EXCEL_PATH = "Plantilla_Proyecto_UIE_Cadena_Valor.xlsx"
-
-ETAPAS = ["Descubrir", "Incubar", "Informar", "Fomentar", "Financiar"]
-ETAPA_COLORS = {
-    "Descubrir": "#6366f1",
-    "Incubar":   "#06b6d4",
-    "Informar":  "#10b981",
-    "Fomentar":  "#f59e0b",
-    "Financiar": "#ef4444",
-}
-
-# ─────────────────────────────────────────────
-# ESTILOS CSS PERSONALIZADOS
-# ─────────────────────────────────────────────
-st.markdown("""
-<style>
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%);
-    }
-    [data-testid="stSidebar"] * { color: white !important; }
-
-    /* Tarjetas KPI */
-    .kpi-card {
-        background: white;
-        border-radius: 12px;
-        padding: 20px 24px;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.08);
-        border-left: 4px solid;
-        margin-bottom: 8px;
-    }
-    .kpi-value { font-size: 2rem; font-weight: 700; margin: 0; }
-    .kpi-label { font-size: 0.85rem; color: #6b7280; margin: 0; }
-
-    /* Badge de etapa */
-    .badge {
-        display: inline-block;
-        padding: 2px 10px;
-        border-radius: 20px;
-        font-size: 0.78rem;
-        font-weight: 600;
-        color: white;
-    }
-
-    /* Historial clínico */
-    .hc-card {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 16px;
-        margin-bottom: 12px;
-        border-left: 4px solid #6366f1;
-    }
-    .hc-fecha { font-size: 0.78rem; color: #64748b; }
-    .hc-etapa { font-weight: 700; color: #6366f1; }
-
-    /* Sección principal */
-    .section-title {
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: #1e1b4b;
-        margin-bottom: 4px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-
-# ─────────────────────────────────────────────
-# CARGA Y GUARDADO DE DATOS
-# ─────────────────────────────────────────────
-@st.cache_data(ttl=0)
-def cargar_datos(path=EXCEL_PATH):
-    """Lee todas las hojas del Excel y devuelve DataFrames."""
-    if not os.path.exists(path):
-        st.error(f"⚠️ No se encontró el archivo **{path}**. "
-                 "Asegúrate de que esté en la misma carpeta que app_uie.py.")
-        st.stop()
-
-    emprendedores = pd.read_excel(path, sheet_name="Emprendedores")
-    acompanamientos = pd.read_excel(path, sheet_name="Acompanamientos")
-    reuniones = pd.read_excel(path, sheet_name="Reuniones")
-
-    # Normalizar fechas
-    for col in ["Fecha_Ingreso"]:
-        if col in emprendedores.columns:
-            emprendedores[col] = pd.to_datetime(emprendedores[col]).dt.date
-
-    for col in ["Fecha"]:
-        if col in acompanamientos.columns:
-            acompanamientos[col] = pd.to_datetime(acompanamientos[col]).dt.date
-        if col in reuniones.columns:
-            reuniones[col] = pd.to_datetime(reuniones[col]).dt.date
-
-    return emprendedores, acompanamientos, reuniones
-
-
-def guardar_hoja(df, sheet_name, path=EXCEL_PATH):
-    """Escribe un DataFrame de vuelta al Excel sin tocar las demás hojas."""
-    from openpyxl import load_workbook
-    wb = load_workbook(path)
-    ws = wb[sheet_name]
-    ws.delete_rows(2, ws.max_row)          # borra datos, deja encabezado
-
-    for row in df.itertuples(index=False):
-        ws.append(list(row))
-
-    wb.save(path)
-    st.cache_data.clear()
-
-
-def next_id(df):
-    return int(df["ID"].max()) + 1 if not df.empty else 1
-
-
-# ─────────────────────────────────────────────
-# SIDEBAR - NAVEGACIÓN
-# ─────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("## 🌱 UIE Cadena de Valor")
-    st.markdown("---")
-    seccion = st.radio(
-        "Navegar a:",
-        [
-            "📊 Dashboard KPIs",
-            "👤 Emprendedores",
-            "📋 Acompañamientos",
-            "📅 Calendario de Reuniones",
-            "➕ Registrar Acompañamiento",
-            "📤 Exportar Datos",
-        ],
-        label_visibility="collapsed",
-    )
-    st.markdown("---")
-    st.caption("Sistema desarrollado para la UIE\nSharePoint · Power Apps · Next.js")
-
-
-# ─────────────────────────────────────────────
-# CARGA INICIAL
-# ─────────────────────────────────────────────
-emprendedores, acompanamientos, reuniones = cargar_datos()
-
-
-# ═══════════════════════════════════════════════════════════════
-# SECCIÓN 1: DASHBOARD KPIs
-# ═══════════════════════════════════════════════════════════════
-if seccion == "📊 Dashboard KPIs":
-    st.markdown('<p class="section-title">📊 Dashboard de Indicadores</p>', unsafe_allow_html=True)
-    st.caption("Vista global de todos los emprendedores en acompañamiento")
-    st.markdown("---")
-
-    # ── KPIs globales ──────────────────────────────────────────
-    total_emp = len(emprendedores)
-    total_acomp = len(acompanamientos)
-    activos = len(emprendedores[emprendedores["Estado"] == "Activo"])
-    prom_avance = acompanamientos["Avance_%"].mean() if "Avance_%" in acompanamientos.columns else 0
-
-    c1, c2, c3, c4 = st.columns(4)
-    def kpi_box(col, valor, label, color):
-        col.markdown(
-            f'<div class="kpi-card" style="border-color:{color}">'
-            f'<p class="kpi-value" style="color:{color}">{valor}</p>'
-            f'<p class="kpi-label">{label}</p></div>',
-            unsafe_allow_html=True,
-        )
-
-    kpi_box(c1, total_emp,        "Total emprendedores",       "#6366f1")
-    kpi_box(c2, activos,          "Emprendedores activos",     "#10b981")
-    kpi_box(c3, total_acomp,      "Acompañamientos realizados","#06b6d4")
-    kpi_box(c4, f"{prom_avance:.0f}%", "Avance promedio",      "#f59e0b")
-
-    st.markdown("### ")
-
-    # ── Gráfico: distribución por etapa ────────────────────────
-    col_a, col_b = st.columns(2)
-
-    with col_a:
-        st.markdown("**Emprendedores por etapa (Cadena de Valor)**")
-        dist = emprendedores["Etapa_UIE"].value_counts().reset_index()
-        dist.columns = ["Etapa", "Cantidad"]
-        dist["Color"] = dist["Etapa"].map(ETAPA_COLORS)
-        fig_pie = px.pie(
-            dist, values="Cantidad", names="Etapa",
-            color="Etapa", color_discrete_map=ETAPA_COLORS,
-            hole=0.45,
-        )
-        fig_pie.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300)
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-    with col_b:
-        st.markdown("**Avance promedio por etapa**")
-        if "Etapa" in acompanamientos.columns and "Avance_%" in acompanamientos.columns:
-            avance_etapa = acompanamientos.groupby("Etapa")["Avance_%"].mean().reset_index()
-            avance_etapa.columns = ["Etapa", "Avance Promedio"]
-            fig_bar = px.bar(
-                avance_etapa, x="Etapa", y="Avance Promedio",
-                color="Etapa", color_discrete_map=ETAPA_COLORS,
-                text="Avance Promedio",
-            )
-            fig_bar.update_traces(texttemplate="%{text:.0f}%", textposition="outside")
-            fig_bar.update_layout(showlegend=False, margin=dict(t=10, b=10), height=300, yaxis_range=[0, 110])
-            st.plotly_chart(fig_bar, use_container_width=True)
-
-    # ── Gráfico: estado de compromisos ──────────────────────────
-    st.markdown("**Estado de compromisos**")
-    if "Estado" in acompanamientos.columns:
-        est_comp = acompanamientos["Estado"].value_counts().reset_index()
-        est_comp.columns = ["Estado", "Cantidad"]
-        color_map = {"Pendiente": "#f59e0b", "En proceso": "#06b6d4", "Cumplido": "#10b981"}
-        fig_comp = px.bar(
-            est_comp, x="Cantidad", y="Estado", orientation="h",
-            color="Estado", color_discrete_map=color_map, text="Cantidad",
-        )
-        fig_comp.update_layout(showlegend=False, margin=dict(t=10, b=10), height=220)
-        st.plotly_chart(fig_comp, use_container_width=True)
-
-    # ── Reuniones ───────────────────────────────────────────────
-    st.markdown("**Estado de reuniones**")
-    if "Estado" in reuniones.columns:
-        est_reu = reuniones["Estado"].value_counts().reset_index()
-        est_reu.columns = ["Estado", "Cantidad"]
-        fig_reu = px.pie(est_reu, values="Cantidad", names="Estado", hole=0.4)
-        fig_reu.update_layout(margin=dict(t=10, b=10), height=250)
-        st.plotly_chart(fig_reu, use_container_width=True)
-
-
-# ═══════════════════════════════════════════════════════════════
-# SECCIÓN 2: EMPRENDEDORES
-# ═══════════════════════════════════════════════════════════════
-elif seccion == "👤 Emprendedores":
-    st.markdown('<p class="section-title">👤 Gestión de Emprendedores</p>', unsafe_allow_html=True)
-    st.markdown("---")
-
-    tab1, tab2 = st.tabs(["📋 Listado", "➕ Nuevo emprendedor"])
-
-    # ── Tab: Listado ──────────────────────────────────────────
-    with tab1:
-        # Filtros
-        col_f1, col_f2 = st.columns(2)
-        filtro_etapa = col_f1.multiselect("Filtrar por etapa", ETAPAS, default=ETAPAS)
-        filtro_estado = col_f2.multiselect("Filtrar por estado", ["Activo", "Graduado", "Inactivo"], default=["Activo", "Graduado"])
-
-        df_filtrado = emprendedores[
-            emprendedores["Etapa_UIE"].isin(filtro_etapa) &
-            emprendedores["Estado"].isin(filtro_estado)
-        ]
-
-        st.dataframe(
-            df_filtrado,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Etapa_UIE": st.column_config.SelectboxColumn("Etapa UIE", options=ETAPAS),
-                "Avance_%":  st.column_config.ProgressColumn("Avance", format="%d%%", min_value=0, max_value=100),
-            }
-        )
-        st.caption(f"{len(df_filtrado)} emprendedores encontrados")
-
-        # KPIs individuales al seleccionar
-        st.markdown("#### 🔍 KPIs individuales")
-        nombres = emprendedores["Nombre"].tolist()
-        sel = st.selectbox("Seleccionar emprendedor", nombres)
-        if sel:
-            emp = emprendedores[emprendedores["Nombre"] == sel].iloc[0]
-            emp_id = emp["ID"]
-            acomp_emp = acompanamientos[acompanamientos["EmprendedorID"] == emp_id]
-            reu_emp   = reuniones[reuniones["EmprendedorID"] == emp_id]
-
-            k1, k2, k3, k4 = st.columns(4)
-            k1.metric("Etapa actual",        emp.get("Etapa_UIE", "—"))
-            k2.metric("Acompañamientos",     len(acomp_emp))
-            k3.metric("Reuniones",           len(reu_emp))
-            k4.metric("Avance promedio",     f"{acomp_emp['Avance_%'].mean():.0f}%" if not acomp_emp.empty else "—")
-
-            if not acomp_emp.empty:
-                st.markdown("**Historial de avance**")
-                fig_line = px.line(
-                    acomp_emp.sort_values("Fecha"),
-                    x="Fecha", y="Avance_%",
-                    markers=True, color_discrete_sequence=["#6366f1"]
-                )
-                fig_line.update_layout(height=220, margin=dict(t=10,b=10))
-                st.plotly_chart(fig_line, use_container_width=True)
-
-    # ── Tab: Nuevo emprendedor ────────────────────────────────
-    with tab2:
-        with st.form("form_emp"):
-            c1, c2 = st.columns(2)
-            nombre    = c1.text_input("Nombre completo *")
-            empren    = c2.text_input("Nombre del emprendimiento *")
-            sector    = c1.text_input("Sector")
-            etapa     = c2.selectbox("Etapa UIE", ETAPAS)
-            estado    = c1.selectbox("Estado", ["Activo", "Graduado", "Inactivo"])
-            responsable = c2.text_input("Responsable")
-            correo    = c1.text_input("Correo")
-            telefono  = c2.text_input("Teléfono")
-
-            submitted = st.form_submit_button("💾 Guardar emprendedor", type="primary")
-            if submitted:
-                if not nombre or not empren:
-                    st.error("Nombre y emprendimiento son obligatorios.")
-                else:
-                    nuevo = {
-                        "ID": next_id(emprendedores),
-                        "Nombre": nombre,
-                        "Emprendimiento": empren,
-                        "Sector": sector,
-                        "Etapa_UIE": etapa,
-                        "Estado": estado,
-                        "Fecha_Ingreso": date.today(),
-                        "Responsable": responsable,
-                        "Correo": correo,
-                        "Telefono": telefono,
-                    }
-                    df_new = pd.concat([emprendedores, pd.DataFrame([nuevo])], ignore_index=True)
-                    guardar_hoja(df_new, "Emprendedores")
-                    st.success(f"✅ Emprendedor **{nombre}** registrado correctamente.")
-                    st.rerun()
-
-
-# ═══════════════════════════════════════════════════════════════
-# SECCIÓN 3: ACOMPAÑAMIENTOS (Historial Clínico)
-# ═══════════════════════════════════════════════════════════════
-elif seccion == "📋 Acompañamientos":
-    st.markdown('<p class="section-title">📋 Historial de Acompañamientos</p>', unsafe_allow_html=True)
-    st.caption("Vista tipo historial clínico por emprendedor")
-    st.markdown("---")
-
-    sel_emp = st.selectbox("Seleccionar emprendedor", emprendedores["Nombre"].tolist())
-    emp_id  = emprendedores[emprendedores["Nombre"] == sel_emp].iloc[0]["ID"]
-    hist    = acompanamientos[acompanamientos["EmprendedorID"] == emp_id].sort_values("Fecha", ascending=False)
-
-    if hist.empty:
-        st.info("Este emprendedor no tiene acompañamientos registrados aún.")
-    else:
-        for _, row in hist.iterrows():
-            color = ETAPA_COLORS.get(row.get("Etapa", ""), "#6366f1")
-            avance = row.get("Avance_%", 0)
-            estado = row.get("Estado", "")
-            estado_color = {"Pendiente": "#f59e0b", "En proceso": "#06b6d4", "Cumplido": "#10b981"}.get(estado, "#94a3b8")
-
-            st.markdown(f"""
-            <div class="hc-card" style="border-left-color:{color}">
-              <div style="display:flex; justify-content:space-between; margin-bottom:8px">
-                <span class="hc-etapa" style="color:{color}">{row.get('Etapa','')}</span>
-                <span class="hc-fecha">📅 {row.get('Fecha','')}</span>
-              </div>
-              <table style="width:100%; font-size:0.88rem">
-                <tr>
-                  <td><b>🔍 Diagnóstico:</b></td>
-                  <td>{row.get('Diagnostico','—')}</td>
-                  <td><b>💡 Recomendaciones:</b></td>
-                  <td>{row.get('Recomendaciones','—')}</td>
-                </tr>
-                <tr>
-                  <td><b>✅ Compromisos:</b></td>
-                  <td>{row.get('Compromisos','—')}</td>
-                  <td><b>📊 Estado:</b></td>
-                  <td><span style="color:{estado_color}; font-weight:600">{estado}</span></td>
-                </tr>
-              </table>
-              <div style="margin-top:10px">
-                <b>Avance: {avance}%</b>
-                <div style="background:#e2e8f0; border-radius:8px; height:8px; margin-top:4px">
-                  <div style="background:{color}; width:{avance}%; height:8px; border-radius:8px"></div>
-                </div>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-
-# ═══════════════════════════════════════════════════════════════
-# SECCIÓN 4: CALENDARIO DE REUNIONES
-# ═══════════════════════════════════════════════════════════════
-elif seccion == "📅 Calendario de Reuniones":
-    st.markdown('<p class="section-title">📅 Gestión de Reuniones</p>', unsafe_allow_html=True)
-    st.markdown("---")
-
-    tab_ver, tab_nueva = st.tabs(["📋 Ver reuniones", "➕ Nueva / Modificar"])
-
-    with tab_ver:
-        # Merge con nombres
-        df_reu = reuniones.merge(
-            emprendedores[["ID", "Nombre"]], left_on="EmprendedorID", right_on="ID", suffixes=("","_emp")
-        )
-        filtro_est = st.multiselect(
-            "Filtrar por estado", ["Programada", "Reagendada", "Cancelada", "Realizada"],
-            default=["Programada", "Reagendada"]
-        )
-        df_reu_f = df_reu[df_reu["Estado"].isin(filtro_est)]
-
-        for _, row in df_reu_f.iterrows():
-            estado = row.get("Estado", "")
-            col_map = {"Programada":"#10b981","Reagendada":"#f59e0b","Cancelada":"#ef4444","Realizada":"#6366f1"}
-            c = col_map.get(estado, "#94a3b8")
-            st.markdown(f"""
-            <div style="background:white; border-left:4px solid {c}; border-radius:8px;
-                        padding:12px 16px; margin-bottom:8px; box-shadow:0 1px 4px rgba(0,0,0,0.07)">
-              <b>{row.get('Nombre','')}</b>
-              &nbsp;·&nbsp; 📅 {row.get('Fecha','')} {row.get('Hora','')}
-              &nbsp;·&nbsp; <span style="color:{c};font-weight:600">{estado}</span>
-              <br><small style="color:#64748b">{row.get('Observaciones','')}</small>
-            </div>
-            """, unsafe_allow_html=True)
-
-    with tab_nueva:
-        with st.form("form_reunion"):
-            c1, c2 = st.columns(2)
-            emp_sel = c1.selectbox("Emprendedor *", emprendedores["Nombre"].tolist())
-            fecha   = c2.date_input("Fecha *", min_value=date.today())
-            hora    = c1.time_input("Hora", value=datetime.strptime("09:00", "%H:%M").time())
-            accion  = c2.selectbox("Acción", ["Crear", "Reagendar", "Cancelar"])
-            obs     = st.text_area("Observaciones")
-
-            estado_map = {"Crear": "Programada", "Reagendar": "Reagendada", "Cancelar": "Cancelada"}
-
-            sub_reu = st.form_submit_button("💾 Guardar reunión", type="primary")
-            if sub_reu:
-                emp_row = emprendedores[emprendedores["Nombre"] == emp_sel].iloc[0]
-                nueva_reu = {
-                    "ID":             next_id(reuniones),
-                    "EmprendedorID":  emp_row["ID"],
-                    "Fecha":          fecha,
-                    "Hora":           hora.strftime("%H:%M"),
-                    "Estado":         estado_map[accion],
-                    "Accion":         accion,
-                    "Observaciones":  obs,
-                }
-                df_new_reu = pd.concat([reuniones, pd.DataFrame([nueva_reu])], ignore_index=True)
-                guardar_hoja(df_new_reu, "Reuniones")
-                st.success(f"✅ Reunión {accion.lower()}da para {emp_sel} el {fecha}.")
-                st.rerun()
-
-
-# ═══════════════════════════════════════════════════════════════
-# SECCIÓN 5: REGISTRAR ACOMPAÑAMIENTO
-# ═══════════════════════════════════════════════════════════════
-elif seccion == "➕ Registrar Acompañamiento":
-    st.markdown('<p class="section-title">➕ Nuevo Acompañamiento</p>', unsafe_allow_html=True)
-    st.caption("Registro tipo historial clínico")
-    st.markdown("---")
-
-    with st.form("form_acomp"):
-        c1, c2 = st.columns(2)
-        emp_sel  = c1.selectbox("Emprendedor *", emprendedores["Nombre"].tolist())
-        fecha_a  = c2.date_input("Fecha *", value=date.today())
-        etapa_a  = c1.selectbox("Etapa de la Cadena de Valor *", ETAPAS)
-        estado_a = c2.selectbox("Estado del compromiso", ["Pendiente", "En proceso", "Cumplido"])
-
-        diagnostico = st.text_area("🔍 Diagnóstico del emprendimiento *", height=80)
-        recomend    = st.text_area("💡 Recomendaciones", height=80)
-        compromisos = st.text_area("✅ Compromisos adquiridos", height=80)
-        avance      = st.slider("📊 Nivel de avance (%)", 0, 100, 50)
-
-        sub_ac = st.form_submit_button("💾 Registrar acompañamiento", type="primary")
-        if sub_ac:
-            if not diagnostico:
-                st.error("El diagnóstico es obligatorio.")
-            else:
-                emp_row = emprendedores[emprendedores["Nombre"] == emp_sel].iloc[0]
-                nuevo_ac = {
-                    "ID":             next_id(acompanamientos),
-                    "EmprendedorID":  emp_row["ID"],
-                    "Fecha":          fecha_a,
-                    "Etapa":          etapa_a,
-                    "Diagnostico":    diagnostico,
-                    "Recomendaciones":recomend,
-                    "Compromisos":    compromisos,
-                    "Avance_%":       avance,
-                    "Estado":         estado_a,
-                }
-                df_new_ac = pd.concat([acompanamientos, pd.DataFrame([nuevo_ac])], ignore_index=True)
-                guardar_hoja(df_new_ac, "Acompanamientos")
-
-                # Actualizar etapa del emprendedor
-                emprendedores.loc[emprendedores["ID"] == emp_row["ID"], "Etapa_UIE"] = etapa_a
-                guardar_hoja(emprendedores, "Emprendedores")
-
-                st.success(f"✅ Acompañamiento registrado para **{emp_sel}** en etapa **{etapa_a}**.")
-                st.balloons()
-                st.rerun()
-
-
-# ═══════════════════════════════════════════════════════════════
-# SECCIÓN 6: EXPORTAR DATOS
-# ═══════════════════════════════════════════════════════════════
-elif seccion == "📤 Exportar Datos":
-    st.markdown('<p class="section-title">📤 Exportar Información</p>', unsafe_allow_html=True)
-    st.markdown("---")
-
-    st.markdown("### 📥 Descargar Excel completo (actualizado)")
-    with open(EXCEL_PATH, "rb") as f:
-        st.download_button(
-            "⬇️ Descargar base de datos Excel",
-            data=f,
-            file_name="UIE_Cadena_Valor_Export.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-
-    st.markdown("### 📊 Exportar reporte CSV por hoja")
-    c1, c2, c3 = st.columns(3)
-
-    buf_emp = io.StringIO()
-    emprendedores.to_csv(buf_emp, index=False)
-    c1.download_button("Emprendedores CSV", buf_emp.getvalue(), "emprendedores.csv", "text/csv")
-
-    buf_ac = io.StringIO()
-    acompanamientos.to_csv(buf_ac, index=False)
-    c2.download_button("Acompañamientos CSV", buf_ac.getvalue(), "acompanamientos.csv", "text/csv")
-
-    buf_reu = io.StringIO()
-    reuniones.to_csv(buf_reu, index=False)
-    c3.download_button("Reuniones CSV", buf_reu.getvalue(), "reuniones.csv", "text/csv")
-
-    st.markdown("### 📋 Vista previa de datos")
-    tab_a, tab_b, tab_c = st.tabs(["Emprendedores", "Acompañamientos", "Reuniones"])
-    with tab_a: st.dataframe(emprendedores, hide_index=True, use_container_width=True)
-    with tab_b: st.dataframe(acompanamientos, hide_index=True, use_container_width=True)
-    with tab_c: st.dataframe(reuniones, hide_index=True, use_container_width=True)
+st.markdown("---")
+st.caption("Dashboard Hosti 🍬 · Todos los conteos son exactos — iteración fila a fila sin riesgo de agrupación incorrecta")
