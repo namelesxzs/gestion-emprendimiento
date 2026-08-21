@@ -15,3 +15,9 @@ export const emprendedorCreateSchema = z.object({
 });
 
 export type EmprendedorCreateInput = z.infer<typeof emprendedorCreateSchema>;
+
+export const emprendedorUpdateSchema = emprendedorCreateSchema.extend({
+  id: z.string().trim().min(1),
+});
+
+export type EmprendedorUpdateInput = z.infer<typeof emprendedorUpdateSchema>;

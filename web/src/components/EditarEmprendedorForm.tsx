@@ -1,30 +1,39 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
-import { registrarEmprendedor, type RegistrarEmprendedorState } from "@/app/emprendedores/actions";
+import { useActionState, useEffect } from "react";
+import { editarEmprendedor, type EditarEmprendedorState } from "@/app/emprendedores/actions";
 import { ETAPAS, ESTADOS_EMPRENDEDOR } from "@/lib/validation/emprendedor";
+import type { Emprendedor } from "@/lib/types";
 import { Card } from "./Card";
 import { FormField } from "./FormField";
 
-const initialState: RegistrarEmprendedorState = {};
+const initialState: EditarEmprendedorState = {};
 
-export function NuevoEmprendedorForm({ onDone }: { onDone: () => void }) {
-  const [state, formAction, isPending] = useActionState(registrarEmprendedor, initialState);
-  const formRef = useRef<HTMLFormElement>(null);
+export function EditarEmprendedorForm({
+  emprendedor,
+  onDone,
+}: {
+  emprendedor: Emprendedor;
+  onDone: () => void;
+}) {
+  const [state, formAction, isPending] = useActionState(editarEmprendedor, initialState);
 
   useEffect(() => {
-    if (state.success) {
-      formRef.current?.reset();
-      onDone();
-    }
+    if (state.success) onDone();
   }, [state, onDone]);
 
   return (
-    <Card title="Nuevo emprendedor">
-      <form ref={formRef} action={formAction} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <FormField label="Nombre" name="nombre" required />
-        <FormField label="Emprendimiento" name="emprendimiento" required />
-        <FormField label="Sector" name="sector" required />
+    <Card title={`Editar ${emprendedor.nombre}`}>
+      <form action={formAction} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <input type="hidden" name="id" value={emprendedor.id} />
+        <FormField label="Nombre" name="nombre" required defaultValue={emprendedor.nombre} />
+        <FormField
+          label="Emprendimiento"
+          name="emprendimiento"
+          required
+          defaultValue={emprendedor.emprendimiento}
+        />
+        <FormField label="Sector" name="sector" required defaultValue={emprendedor.sector} />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="etapa" className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
             Etapa
@@ -33,7 +42,7 @@ export function NuevoEmprendedorForm({ onDone }: { onDone: () => void }) {
             id="etapa"
             name="etapa"
             required
-            defaultValue="Descubrir"
+            defaultValue={emprendedor.etapa}
             className="rounded-md border px-3 py-2 text-sm outline-none"
             style={{ borderColor: "var(--border-hairline)", color: "var(--text-primary)" }}
           >
@@ -52,7 +61,7 @@ export function NuevoEmprendedorForm({ onDone }: { onDone: () => void }) {
             id="estado"
             name="estado"
             required
-            defaultValue="Activo"
+            defaultValue={emprendedor.estado}
             className="rounded-md border px-3 py-2 text-sm outline-none"
             style={{ borderColor: "var(--border-hairline)", color: "var(--text-primary)" }}
           >
@@ -63,9 +72,15 @@ export function NuevoEmprendedorForm({ onDone }: { onDone: () => void }) {
             ))}
           </select>
         </div>
-        <FormField label="Fecha de ingreso" name="fechaIngreso" type="date" required />
-        <FormField label="Correo" name="correo" type="email" required />
-        <FormField label="Teléfono" name="telefono" required />
+        <FormField
+          label="Fecha de ingreso"
+          name="fechaIngreso"
+          type="date"
+          required
+          defaultValue={emprendedor.fechaIngreso}
+        />
+        <FormField label="Correo" name="correo" type="email" required defaultValue={emprendedor.correo} />
+        <FormField label="Teléfono" name="telefono" required defaultValue={emprendedor.telefono} />
 
         {state.error && (
           <p className="sm:col-span-2 text-sm" style={{ color: "var(--status-critical)" }}>
@@ -80,7 +95,7 @@ export function NuevoEmprendedorForm({ onDone }: { onDone: () => void }) {
             className="rounded-md px-4 py-2 text-sm font-bold uppercase tracking-wide text-white transition-colors disabled:opacity-60"
             style={{ backgroundColor: "var(--brand-primary)" }}
           >
-            {isPending ? "Guardando..." : "Registrar"}
+            {isPending ? "Guardando..." : "Guardar cambios"}
           </button>
           <button
             type="button"

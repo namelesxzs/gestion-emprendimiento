@@ -9,6 +9,7 @@ import { FilterChip } from "./FilterChip";
 import { EtapaBadge } from "./EtapaBadge";
 import { Card } from "./Card";
 import { NuevoEmprendedorForm } from "./NuevoEmprendedorForm";
+import { EditarEmprendedorForm } from "./EditarEmprendedorForm";
 import { ETAPA_COLOR_VAR } from "./etapa-colors";
 
 interface Row extends Emprendedor {
@@ -32,6 +33,7 @@ export function EmprendedoresExplorer({
   );
   const [selectedId, setSelectedId] = useState<string | null>(rows[0]?.id ?? null);
   const [showForm, setShowForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
 
   const { data: session } = useSession();
   const puedeRegistrar = session?.user.rol === "ADMINISTRADOR" || session?.user.rol === "DOCENTE";
@@ -123,15 +125,32 @@ export function EmprendedoresExplorer({
           <EmprendedoresTable
             rows={filteredRows}
             selectedId={selected?.id}
-            onSelect={(row) => setSelectedId(row.id)}
+            onSelect={(row) => {
+              setSelectedId(row.id);
+              setShowEditForm(false);
+            }}
           />
         )}
       </Card>
 
-      {selected && (
+      {selected && showEditForm ? (
+        <EditarEmprendedorForm emprendedor={selected} onDone={() => setShowEditForm(false)} />
+      ) : selected ? (
         <Card
           title={selected.nombre}
           subtitle={`${selected.emprendimiento} · ${selected.sector}`}
+          action={
+            puedeRegistrar && (
+              <button
+                type="button"
+                onClick={() => setShowEditForm(true)}
+                className="text-xs font-bold uppercase tracking-wide"
+                style={{ color: "var(--brand-primary)" }}
+              >
+                Editar
+              </button>
+            )
+          }
         >
           <div className="flex flex-col gap-5">
             <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
@@ -193,7 +212,7 @@ export function EmprendedoresExplorer({
             )}
           </div>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }
