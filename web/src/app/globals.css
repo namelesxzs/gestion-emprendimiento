@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --background: #f4f6f7;
+  --foreground: #333333;
+
+  --surface-1: #ffffff;
+  --surface-2: #eef1f2;
+  --text-primary: #333333;
+  --text-secondary: #555555;
+  --text-muted: #85898c;
+  --gridline: #e4e7e9;
+  --baseline: #ccd1d4;
+  --border-hairline: rgba(51, 51, 51, 0.1);
+
+  --brand-primary: #0689bb;
+  --brand-primary-hover: #008db8;
+  --brand-accent: #05c9fd;
+  --brand-ink: #003366;
+  --brand-header: #333333;
+  --brand-primary-tint: rgba(6, 137, 187, 0.08);
+  --brand-primary-tint-strong: rgba(6, 137, 187, 0.14);
+
+  --shadow-card: 0 1px 2px rgba(20, 30, 35, 0.04), 0 4px 16px rgba(20, 30, 35, 0.05);
+  --shadow-header: 0 2px 10px rgba(20, 30, 35, 0.06);
+
+  --etapa-descubrir: #2a78d6;
+  --etapa-incubar: #eb6834;
+  --etapa-formar: #1baf7a;
+  --etapa-fomentar: #eda100;
+  --etapa-financiar: #e87ba4;
+
+  --sequential-450: #2a78d6;
+  --sequential-150: #b7d3f6;
+
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-brand: var(--font-brand);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), system-ui, sans-serif;
+}

@@ -1,0 +1,89 @@
+import { StatTile } from "@/components/StatTile";
+import { Card } from "@/components/Card";
+import { EtapaBarChart } from "@/components/EtapaBarChart";
+import { EmprendedoresTable } from "@/components/EmprendedoresTable";
+import { ProximasReuniones } from "@/components/ProximasReuniones";
+import {
+  emprendedores,
+  getEtapaDistribution,
+  getKpis,
+  getProximasReuniones,
+  getUltimoAvance,
+} from "@/lib/mock-data";
+
+export default function Home() {
+  const kpis = getKpis();
+  const distribucion = getEtapaDistribution();
+  const proximasReuniones = getProximasReuniones();
+  const filasEmprendedores = emprendedores.map((e) => ({
+    ...e,
+    avance: getUltimoAvance(e.id),
+  }));
+
+  return (
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
+      <header>
+        <p
+          className="text-xs font-medium uppercase tracking-wide"
+          style={{ color: "var(--brand-primary)" }}
+        >
+          Unidad de Innovación y Emprendimiento
+        </p>
+        <h1
+          className="mt-1 text-2xl font-bold"
+          style={{ color: "var(--brand-ink)", fontFamily: "var(--font-brand)" }}
+        >
+          Acompañamiento a Emprendedores
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Vista general del proceso de acompañamiento y avance por la cadena de valor
+          (Descubrir · Incubar · Formar · Fomentar · Financiar). Datos de ejemplo — sin
+          conexión a la fuente de datos real todavía.
+        </p>
+      </header>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatTile
+          label="Total emprendedores"
+          value={kpis.totalEmprendedores}
+          accent="var(--etapa-descubrir)"
+        />
+        <StatTile
+          label="Emprendedores activos"
+          value={kpis.activos}
+          accent="var(--status-good)"
+        />
+        <StatTile
+          label="Acompañamientos realizados"
+          value={kpis.totalAcompanamientos}
+          accent="var(--etapa-formar)"
+        />
+        <StatTile
+          label="Avance promedio"
+          value={`${kpis.avancePromedio}%`}
+          accent="var(--etapa-fomentar)"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <Card
+            title="Emprendedores por etapa"
+            subtitle="Distribución sobre la cadena de valor institucional"
+          >
+            <EtapaBarChart data={distribucion} />
+          </Card>
+        </div>
+        <div className="lg:col-span-2">
+          <Card title="Próximas reuniones" subtitle="Programadas o reagendadas">
+            <ProximasReuniones reuniones={proximasReuniones} />
+          </Card>
+        </div>
+      </div>
+
+      <Card title="Emprendedores" subtitle="Listado con la última medición de avance registrada">
+        <EmprendedoresTable rows={filasEmprendedores} />
+      </Card>
+    </main>
+  );
+}

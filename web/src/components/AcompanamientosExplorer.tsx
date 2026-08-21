@@ -1,0 +1,54 @@
+"use client";
+
+import { useState } from "react";
+import type { Emprendedor } from "@/lib/types";
+import { getAcompanamientosByEmprendedor } from "@/lib/mock-data";
+import { Card } from "./Card";
+import { AcompanamientoCard } from "./AcompanamientoCard";
+import { FilterChip } from "./FilterChip";
+import { ETAPA_COLOR_VAR } from "./etapa-colors";
+
+export function AcompanamientosExplorer({ emprendedores }: { emprendedores: Emprendedor[] }) {
+  const [selectedId, setSelectedId] = useState<number | null>(emprendedores[0]?.id ?? null);
+  const selected = emprendedores.find((e) => e.id === selectedId) ?? null;
+  const historial = selected ? getAcompanamientosByEmprendedor(selected.id) : [];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card title="Emprendedor">
+        <div className="flex flex-wrap gap-2">
+          {emprendedores.map((e) => (
+            <FilterChip
+              key={e.id}
+              label={e.nombre}
+              active={e.id === selectedId}
+              color={ETAPA_COLOR_VAR[e.etapa]}
+              onClick={() => setSelectedId(e.id)}
+            />
+          ))}
+        </div>
+      </Card>
+
+      <Card
+        title={selected ? `Historial de ${selected.nombre}` : "Historial"}
+        subtitle={
+          selected
+            ? `${historial.length} acompañamiento${historial.length === 1 ? "" : "s"} registrado${historial.length === 1 ? "" : "s"}, del más reciente al más antiguo`
+            : undefined
+        }
+      >
+        {historial.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            Este emprendedor no tiene acompañamientos registrados todavía.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {historial.map((a) => (
+              <AcompanamientoCard key={a.id} acompanamiento={a} />
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
