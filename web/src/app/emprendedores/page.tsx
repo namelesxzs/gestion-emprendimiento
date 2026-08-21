@@ -1,8 +1,18 @@
+import { redirect } from "next/navigation";
 import { EmprendedoresExplorer } from "@/components/EmprendedoresExplorer";
+import { auth } from "@/auth";
 import { getAllAcompanamientos, getAllReuniones, getEmprendedores } from "@/lib/queries";
 import { getUltimoAvance } from "@/lib/view";
 
 export default async function EmprendedoresPage() {
+  const session = await auth();
+
+  // RF13: esta vista lista a todos los emprendedores — un Emprendedor no
+  // debe verla, su propio perfil ya está en el Dashboard.
+  if (session?.user.rol === "EMPRENDEDOR") {
+    redirect("/");
+  }
+
   const [emprendedores, acompanamientos, reuniones] = await Promise.all([
     getEmprendedores(),
     getAllAcompanamientos(),

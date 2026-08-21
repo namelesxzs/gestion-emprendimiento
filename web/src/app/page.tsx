@@ -3,10 +3,50 @@ import { Card } from "@/components/Card";
 import { EtapaBarChart } from "@/components/EtapaBarChart";
 import { EmprendedoresTable } from "@/components/EmprendedoresTable";
 import { ProximasReuniones } from "@/components/ProximasReuniones";
+import { MiPerfilDashboard } from "@/components/MiPerfilDashboard";
+import { auth } from "@/auth";
 import { getAllAcompanamientos, getAllReuniones, getEmprendedores } from "@/lib/queries";
 import { getEtapaDistribution, getKpis, getProximasReuniones, getUltimoAvance } from "@/lib/view";
 
 export default async function Home() {
+  const session = await auth();
+
+  // RF13: un Emprendedor solo consulta su propio progreso, nunca el
+  // panel institucional completo — se pide solo su propio dato, no se
+  // filtra después de traer todo.
+  if (session?.user.rol === "EMPRENDEDOR" && session.user.emprendedorId) {
+    const [emprendedores, acompanamientos, reuniones] = await Promise.all([
+      getEmprendedores(session.user.emprendedorId),
+      getAllAcompanamientos(session.user.emprendedorId),
+      getAllReuniones(session.user.emprendedorId),
+    ]);
+    const emprendedor = emprendedores[0];
+
+    return (
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
+        <header>
+          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--brand-primary)" }}>
+            Unidad de Innovación y Emprendimiento
+          </p>
+          <h1 className="mt-1 text-2xl font-bold" style={{ color: "var(--brand-ink)", fontFamily: "var(--font-brand)" }}>
+            Mi progreso
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Tu avance por la cadena de valor y tus próximas reuniones.
+          </p>
+        </header>
+
+        {emprendedor ? (
+          <MiPerfilDashboard emprendedor={emprendedor} acompanamientos={acompanamientos} reuniones={reuniones} />
+        ) : (
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            Tu cuenta no está vinculada a ningún registro de emprendedor todavía.
+          </p>
+        )}
+      </main>
+    );
+  }
+
   const [emprendedores, acompanamientos, reuniones] = await Promise.all([
     getEmprendedores(),
     getAllAcompanamientos(),

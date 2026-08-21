@@ -27,22 +27,24 @@ export function AcompanamientosExplorer({
 
   return (
     <div className="flex flex-col gap-4">
-      <Card title="Emprendedor">
-        <div className="flex flex-wrap gap-2">
-          {emprendedores.map((e) => (
-            <FilterChip
-              key={e.id}
-              label={e.nombre}
-              active={e.id === selectedId}
-              color={ETAPA_COLOR_VAR[e.etapa]}
-              onClick={() => {
-                setSelectedId(e.id);
-                setShowForm(false);
-              }}
-            />
-          ))}
-        </div>
-      </Card>
+      {emprendedores.length > 1 && (
+        <Card title="Emprendedor">
+          <div className="flex flex-wrap gap-2">
+            {emprendedores.map((e) => (
+              <FilterChip
+                key={e.id}
+                label={e.nombre}
+                active={e.id === selectedId}
+                color={ETAPA_COLOR_VAR[e.etapa]}
+                onClick={() => {
+                  setSelectedId(e.id);
+                  setShowForm(false);
+                }}
+              />
+            ))}
+          </div>
+        </Card>
+      )}
 
       {puedeRegistrar && selected && !showForm && (
         <div className="flex justify-end">

@@ -11,6 +11,14 @@ const LINKS = [
   { href: "/reuniones", label: "Reuniones" },
 ];
 
+// El Emprendedor no tiene una vista de "todos los emprendedores" (RF13) —
+// esa página redirige al Dashboard, así que ni se le muestra el enlace.
+const LINKS_EMPRENDEDOR = [
+  { href: "/", label: "Mi progreso" },
+  { href: "/acompanamientos", label: "Mi historial" },
+  { href: "/reuniones", label: "Mis reuniones" },
+];
+
 const ROL_LABEL: Record<string, string> = {
   ADMINISTRADOR: "Administrador",
   DOCENTE: "Docente",
@@ -22,6 +30,7 @@ export function NavBar() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const isLoginPage = pathname === "/login";
+  const links = session?.user.rol === "EMPRENDEDOR" ? LINKS_EMPRENDEDOR : LINKS;
 
   return (
     <nav>
@@ -63,7 +72,7 @@ export function NavBar() {
               con el estado real (no autenticado). */}
           {!isLoginPage && (
             <div className="flex items-center gap-6">
-              {LINKS.map((link) => {
+              {links.map((link) => {
                 const active = pathname === link.href;
                 return (
                   <Link

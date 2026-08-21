@@ -13,8 +13,14 @@ function fmtDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-export async function getEmprendedores(): Promise<Emprendedor[]> {
+/**
+ * `soloEmprendedorId` acota la consulta a un único emprendedor — se usa
+ * para el rol EMPRENDEDOR, que nunca debe recibir datos de otros (RF13).
+ * El filtro se aplica en la consulta misma, no después de traer todo.
+ */
+export async function getEmprendedores(soloEmprendedorId?: string): Promise<Emprendedor[]> {
   const rows = await prisma.emprendedor.findMany({
+    where: soloEmprendedorId ? { id: soloEmprendedorId } : undefined,
     include: { responsable: true },
     orderBy: { nombre: "asc" },
   });
@@ -33,8 +39,14 @@ export async function getEmprendedores(): Promise<Emprendedor[]> {
   }));
 }
 
-export async function getAllAcompanamientos(): Promise<Acompanamiento[]> {
+export async function getEmprendedorById(id: string): Promise<Emprendedor | null> {
+  const rows = await getEmprendedores(id);
+  return rows[0] ?? null;
+}
+
+export async function getAllAcompanamientos(soloEmprendedorId?: string): Promise<Acompanamiento[]> {
   const rows = await prisma.acompanamiento.findMany({
+    where: soloEmprendedorId ? { emprendedorId: soloEmprendedorId } : undefined,
     include: { compromisos: true },
     orderBy: { fecha: "desc" },
   });
@@ -55,8 +67,11 @@ export async function getAllAcompanamientos(): Promise<Acompanamiento[]> {
   });
 }
 
-export async function getAllReuniones(): Promise<Reunion[]> {
-  const rows = await prisma.reunion.findMany({ orderBy: { fecha: "desc" } });
+export async function getAllReuniones(soloEmprendedorId?: string): Promise<Reunion[]> {
+  const rows = await prisma.reunion.findMany({
+    where: soloEmprendedorId ? { emprendedorId: soloEmprendedorId } : undefined,
+    orderBy: { fecha: "desc" },
+  });
 
   return rows.map((r) => ({
     id: r.id,
