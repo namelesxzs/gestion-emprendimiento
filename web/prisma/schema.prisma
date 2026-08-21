@@ -1,0 +1,162 @@
+// Prisma schema — Plataforma UIE
+// SQLite no soporta enums nativos ni listas escalares: los campos de tipo
+// "enum" (etapa, estado, rol, etc.) se modelan como String, validados con
+// Zod en la capa de aplicación (ver src/lib/validation).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Usuario {
+  id            String    @id @default(cuid())
+  nombre        String
+  correo        String    @unique
+  passwordHash  String
+  rol           String // ADMINISTRADOR | DOCENTE | COORDINADOR | EMPRENDEDOR
+  activo        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Solo si rol = EMPRENDEDOR: vincula la cuenta a su propio registro.
+  emprendedorId String?      @unique
+  emprendedor   Emprendedor? @relation("CuentaEmprendedor", fields: [emprendedorId], references: [id])
+
+  emprendedoresACargo Emprendedor[]    @relation("Responsable")
+  acompanamientos     Acompanamiento[]
+  reuniones           Reunion[]
+  auditLogs           AuditLog[]
+  importRuns          ImportRun[]
+
+  @@index([rol])
+}
+
+model Emprendedor {
+  id                   String    @id @default(cuid())
+  // Business Key futura (aún no existe en el Excel oficial) — nullable hasta
+  // que la institución la provea.
+  codigoInstitucional  String?   @unique
+  // Matching Key interina del importador — el campo más estable disponible hoy.
+  correo               String    @unique
+  nombre               String
+  emprendimiento       String
+  sector               String
+  telefono             String
+  etapa                String // Descubrir | Incubar | Formar | Fomentar | Financiar
+  estado               String    @default("Activo") // Activo | Graduado | Inactivo
+  fechaIngreso         DateTime
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  // Soft delete — nunca DELETE físico sobre un registro con historial.
+  deletedAt            DateTime?
+
+  responsableId   String?
+  responsable     Usuario?   @relation("Responsable", fields: [responsableId], references: [id])
+
+  lastImportRunId String?
+  lastImportRun   ImportRun? @relation("UltimaImportacion", fields: [lastImportRunId], references: [id])
+
+  cuentaUsuario   Usuario?         @relation("CuentaEmprendedor")
+  acompanamientos Acompanamiento[]
+  reuniones       Reunion[]
+  importaciones   ImportRun[]      @relation("EmprendedoresAfectados")
+
+  @@index([etapa])
+  @@index([estado])
+}
+
+model Acompanamiento {
+  id              String   @id @default(cuid())
+  emprendedorId   String
+  emprendedor     Emprendedor @relation(fields: [emprendedorId], references: [id])
+  docenteId       String?
+  docente         Usuario?    @relation(fields: [docenteId], references: [id])
+  fecha           DateTime
+  etapa           String
+  diagnostico     String
+  recomendaciones String
+  avancePct       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  compromisos Compromiso[]
+
+  @@index([emprendedorId, fecha])
+}
+
+// Normalizado como tabla propia (separado de Acompanamiento) para soportar
+// KPI de cumplimiento real — ver §9/§18 de la auditoría.
+model Compromiso {
+  id                String    @id @default(cuid())
+  acompanamientoId  String
+  acompanamiento    Acompanamiento @relation(fields: [acompanamientoId], references: [id])
+  descripcion       String
+  fechaCompromiso   DateTime
+  fechaCumplimiento DateTime?
+  estado            String    @default("Pendiente") // Pendiente | En proceso | Cumplido
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([estado])
+}
+
+model Reunion {
+  id            String   @id @default(cuid())
+  emprendedorId String
+  emprendedor   Emprendedor @relation(fields: [emprendedorId], references: [id])
+  docenteId     String?
+  docente       Usuario?    @relation(fields: [docenteId], references: [id])
+  fecha         DateTime
+  hora          String
+  estado        String   @default("Programada") // Programada | Reagendada | Cancelada | Realizada
+  accion        String
+  observaciones String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([emprendedorId, fecha])
+}
+
+model AuditLog {
+  id            String    @id @default(cuid())
+  usuarioId     String?
+  usuario       Usuario?  @relation(fields: [usuarioId], references: [id])
+  rolSnapshot   String?
+  entidad       String
+  entidadId     String
+  accion        String // CREATE | UPDATE | DELETE | LOGIN
+  origen        String // MANUAL | IMPORTACION_EXCEL | SISTEMA | ADMINISTRACION
+  valorAnterior Json?
+  valorNuevo    Json?
+  resultado     String    @default("EXITO") // EXITO | ERROR
+  importRunId   String?
+  importRun     ImportRun? @relation(fields: [importRunId], references: [id])
+  createdAt     DateTime  @default(now())
+
+  @@index([entidad, entidadId])
+  @@index([createdAt])
+}
+
+model ImportRun {
+  id                 String   @id @default(cuid())
+  usuarioId          String
+  usuario            Usuario  @relation(fields: [usuarioId], references: [id])
+  archivoNombre      String
+  archivoHash        String
+  archivoStoragePath String?
+  totalFilas         Int      @default(0)
+  nuevos             Int      @default(0)
+  actualizados       Int      @default(0)
+  sinCambios         Int      @default(0)
+  errores            Int      @default(0)
+  estado             String   @default("EN_PROGRESO") // EN_PROGRESO | CONFIRMADO | CANCELADO | FALLIDO
+  createdAt          DateTime @default(now())
+
+  auditLogs              AuditLog[]
+  emprendedoresAfectados Emprendedor[] @relation("EmprendedoresAfectados")
+  emprendedoresUltimaImportacion Emprendedor[] @relation("UltimaImportacion")
+}
