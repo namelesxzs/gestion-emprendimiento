@@ -22,7 +22,7 @@ export function ProximasReuniones({ reuniones }: { reuniones: ReunionRow[] }) {
   }
 
   return (
-    <ul className="flex flex-col gap-2.5">
+    <ul className="flex max-h-72 flex-col gap-2.5 overflow-y-auto pr-1">
       {reuniones.map((r) => (
         <li
           key={r.id}
