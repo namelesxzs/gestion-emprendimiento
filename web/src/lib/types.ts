@@ -7,7 +7,7 @@ export type EstadoCompromiso = "Pendiente" | "En proceso" | "Cumplido";
 export type EstadoReunion = "Programada" | "Reagendada" | "Cancelada" | "Realizada";
 
 export interface Emprendedor {
-  id: number;
+  id: string;
   nombre: string;
   emprendimiento: string;
   sector: string;
@@ -19,9 +19,15 @@ export interface Emprendedor {
   telefono: string;
 }
 
+/**
+ * Vista aplanada de un Acompanamiento para las pantallas actuales. En la
+ * base de datos los compromisos viven en su propia tabla (uno o varios por
+ * acompañamiento, ver prisma/schema.prisma); `compromisos`/`estado` aquí
+ * resumen esa relación para no tocar los componentes de UI existentes.
+ */
 export interface Acompanamiento {
-  id: number;
-  emprendedorId: number;
+  id: string;
+  emprendedorId: string;
   fecha: string;
   etapa: Etapa;
   diagnostico: string;
@@ -32,8 +38,8 @@ export interface Acompanamiento {
 }
 
 export interface Reunion {
-  id: number;
-  emprendedorId: number;
+  id: string;
+  emprendedorId: string;
   fecha: string;
   hora: string;
   estado: EstadoReunion;

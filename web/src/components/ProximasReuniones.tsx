@@ -1,5 +1,5 @@
 interface ReunionRow {
-  id: number;
+  id: string;
   emprendedorNombre: string;
   fecha: string;
   hora: string;

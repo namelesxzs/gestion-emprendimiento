@@ -1,10 +1,17 @@
 import { EmprendedoresExplorer } from "@/components/EmprendedoresExplorer";
-import { emprendedores, getUltimoAvance } from "@/lib/mock-data";
+import { getAllAcompanamientos, getAllReuniones, getEmprendedores } from "@/lib/queries";
+import { getUltimoAvance } from "@/lib/view";
 
-export default function EmprendedoresPage() {
+export default async function EmprendedoresPage() {
+  const [emprendedores, acompanamientos, reuniones] = await Promise.all([
+    getEmprendedores(),
+    getAllAcompanamientos(),
+    getAllReuniones(),
+  ]);
+
   const rows = emprendedores.map((e) => ({
     ...e,
-    avance: getUltimoAvance(e.id),
+    avance: getUltimoAvance(acompanamientos, e.id),
   }));
 
   return (
@@ -27,7 +34,7 @@ export default function EmprendedoresPage() {
         </p>
       </header>
 
-      <EmprendedoresExplorer rows={rows} />
+      <EmprendedoresExplorer rows={rows} acompanamientos={acompanamientos} reuniones={reuniones} />
     </main>
   );
 }

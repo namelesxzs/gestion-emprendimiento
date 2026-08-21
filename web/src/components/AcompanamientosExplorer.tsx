@@ -1,17 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import type { Emprendedor } from "@/lib/types";
-import { getAcompanamientosByEmprendedor } from "@/lib/mock-data";
+import type { Acompanamiento, Emprendedor } from "@/lib/types";
+import { getAcompanamientosByEmprendedor } from "@/lib/view";
 import { Card } from "./Card";
 import { AcompanamientoCard } from "./AcompanamientoCard";
 import { FilterChip } from "./FilterChip";
 import { ETAPA_COLOR_VAR } from "./etapa-colors";
 
-export function AcompanamientosExplorer({ emprendedores }: { emprendedores: Emprendedor[] }) {
-  const [selectedId, setSelectedId] = useState<number | null>(emprendedores[0]?.id ?? null);
+export function AcompanamientosExplorer({
+  emprendedores,
+  acompanamientos,
+}: {
+  emprendedores: Emprendedor[];
+  acompanamientos: Acompanamiento[];
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(emprendedores[0]?.id ?? null);
   const selected = emprendedores.find((e) => e.id === selectedId) ?? null;
-  const historial = selected ? getAcompanamientosByEmprendedor(selected.id) : [];
+  const historial = selected ? getAcompanamientosByEmprendedor(acompanamientos, selected.id) : [];
 
   return (
     <div className="flex flex-col gap-4">

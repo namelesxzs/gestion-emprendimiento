@@ -8,7 +8,7 @@ interface Row extends Emprendedor {
 
 interface EmprendedoresTableProps {
   rows: Row[];
-  selectedId?: number;
+  selectedId?: string;
   onSelect?: (row: Row) => void;
 }
 

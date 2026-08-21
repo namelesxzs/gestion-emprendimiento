@@ -3,21 +3,22 @@ import { Card } from "@/components/Card";
 import { EtapaBarChart } from "@/components/EtapaBarChart";
 import { EmprendedoresTable } from "@/components/EmprendedoresTable";
 import { ProximasReuniones } from "@/components/ProximasReuniones";
-import {
-  emprendedores,
-  getEtapaDistribution,
-  getKpis,
-  getProximasReuniones,
-  getUltimoAvance,
-} from "@/lib/mock-data";
+import { getAllAcompanamientos, getAllReuniones, getEmprendedores } from "@/lib/queries";
+import { getEtapaDistribution, getKpis, getProximasReuniones, getUltimoAvance } from "@/lib/view";
 
-export default function Home() {
-  const kpis = getKpis();
-  const distribucion = getEtapaDistribution();
-  const proximasReuniones = getProximasReuniones();
+export default async function Home() {
+  const [emprendedores, acompanamientos, reuniones] = await Promise.all([
+    getEmprendedores(),
+    getAllAcompanamientos(),
+    getAllReuniones(),
+  ]);
+
+  const kpis = getKpis(emprendedores, acompanamientos);
+  const distribucion = getEtapaDistribution(emprendedores);
+  const proximasReuniones = getProximasReuniones(reuniones, emprendedores);
   const filasEmprendedores = emprendedores.map((e) => ({
     ...e,
-    avance: getUltimoAvance(e.id),
+    avance: getUltimoAvance(acompanamientos, e.id),
   }));
 
   return (
@@ -37,8 +38,7 @@ export default function Home() {
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
           Vista general del proceso de acompañamiento y avance por la cadena de valor
-          (Descubrir · Incubar · Formar · Fomentar · Financiar). Datos de ejemplo — sin
-          conexión a la fuente de datos real todavía.
+          (Descubrir · Incubar · Formar · Fomentar · Financiar).
         </p>
       </header>
 

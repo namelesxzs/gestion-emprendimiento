@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Emprendedor, Etapa, EstadoEmprendedor } from "@/lib/types";
-import { ETAPA_ORDER, getAcompanamientosByEmprendedor, getReunionesByEmprendedor } from "@/lib/mock-data";
+import type { Acompanamiento, Emprendedor, Etapa, EstadoEmprendedor, Reunion } from "@/lib/types";
+import { ETAPA_ORDER, getAcompanamientosByEmprendedor, getReunionesByEmprendedor } from "@/lib/view";
 import { EmprendedoresTable } from "./EmprendedoresTable";
 import { FilterChip } from "./FilterChip";
 import { EtapaBadge } from "./EtapaBadge";
@@ -15,12 +15,20 @@ interface Row extends Emprendedor {
 
 const ESTADOS: EstadoEmprendedor[] = ["Activo", "Graduado", "Inactivo"];
 
-export function EmprendedoresExplorer({ rows }: { rows: Row[] }) {
+export function EmprendedoresExplorer({
+  rows,
+  acompanamientos,
+  reuniones,
+}: {
+  rows: Row[];
+  acompanamientos: Acompanamiento[];
+  reuniones: Reunion[];
+}) {
   const [etapaFilter, setEtapaFilter] = useState<Set<Etapa>>(new Set(ETAPA_ORDER));
   const [estadoFilter, setEstadoFilter] = useState<Set<EstadoEmprendedor>>(
     new Set(["Activo", "Graduado"])
   );
-  const [selectedId, setSelectedId] = useState<number | null>(rows[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(rows[0]?.id ?? null);
 
   const filteredRows = useMemo(
     () => rows.filter((r) => etapaFilter.has(r.etapa) && estadoFilter.has(r.estado)),
@@ -48,9 +56,11 @@ export function EmprendedoresExplorer({ rows }: { rows: Row[] }) {
     });
   }
 
-  const acompanamientos = selected ? getAcompanamientosByEmprendedor(selected.id) : [];
-  const reuniones = selected ? getReunionesByEmprendedor(selected.id) : [];
-  const ultimoAcompanamiento = acompanamientos[0];
+  const acompanamientosSeleccionado = selected
+    ? getAcompanamientosByEmprendedor(acompanamientos, selected.id)
+    : [];
+  const reunionesSeleccionado = selected ? getReunionesByEmprendedor(reuniones, selected.id) : [];
+  const ultimoAcompanamiento = acompanamientosSeleccionado[0];
 
   return (
     <div className="flex flex-col gap-4">
@@ -110,11 +120,11 @@ export function EmprendedoresExplorer({ rows }: { rows: Row[] }) {
               </div>
               <div>
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>Acompañamientos</p>
-                <p style={{ color: "var(--text-primary)" }}>{acompanamientos.length}</p>
+                <p style={{ color: "var(--text-primary)" }}>{acompanamientosSeleccionado.length}</p>
               </div>
               <div>
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>Reuniones</p>
-                <p style={{ color: "var(--text-primary)" }}>{reuniones.length}</p>
+                <p style={{ color: "var(--text-primary)" }}>{reunionesSeleccionado.length}</p>
               </div>
               <div>
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>Último avance</p>

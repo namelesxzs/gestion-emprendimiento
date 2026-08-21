@@ -1,7 +1,12 @@
 import { AcompanamientosExplorer } from "@/components/AcompanamientosExplorer";
-import { emprendedores } from "@/lib/mock-data";
+import { getAllAcompanamientos, getEmprendedores } from "@/lib/queries";
 
-export default function AcompanamientosPage() {
+export default async function AcompanamientosPage() {
+  const [emprendedores, acompanamientos] = await Promise.all([
+    getEmprendedores(),
+    getAllAcompanamientos(),
+  ]);
+
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
       <header>
@@ -22,7 +27,7 @@ export default function AcompanamientosPage() {
         </p>
       </header>
 
-      <AcompanamientosExplorer emprendedores={emprendedores} />
+      <AcompanamientosExplorer emprendedores={emprendedores} acompanamientos={acompanamientos} />
     </main>
   );
 }
