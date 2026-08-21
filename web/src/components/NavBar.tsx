@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/emprendedores", label: "Emprendedores" },
   { href: "/acompanamientos", label: "Acompañamientos" },
+  { href: "/reuniones", label: "Reuniones" },
 ];
 
 const ROL_LABEL: Record<string, string> = {
