@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { Acompanamiento, Emprendedor, Etapa, EstadoEmprendedor, Reunion } from "@/lib/types";
 import { ETAPA_ORDER, getAcompanamientosByEmprendedor, getReunionesByEmprendedor } from "@/lib/view";
 import { EmprendedoresTable } from "./EmprendedoresTable";
 import { FilterChip } from "./FilterChip";
 import { EtapaBadge } from "./EtapaBadge";
 import { Card } from "./Card";
+import { NuevoEmprendedorForm } from "./NuevoEmprendedorForm";
 import { ETAPA_COLOR_VAR } from "./etapa-colors";
 
 interface Row extends Emprendedor {
@@ -29,6 +31,10 @@ export function EmprendedoresExplorer({
     new Set(["Activo", "Graduado"])
   );
   const [selectedId, setSelectedId] = useState<string | null>(rows[0]?.id ?? null);
+  const [showForm, setShowForm] = useState(false);
+
+  const { data: session } = useSession();
+  const puedeRegistrar = session?.user.rol === "ADMINISTRADOR" || session?.user.rol === "DOCENTE";
 
   const filteredRows = useMemo(
     () => rows.filter((r) => etapaFilter.has(r.etapa) && estadoFilter.has(r.estado)),
@@ -64,6 +70,21 @@ export function EmprendedoresExplorer({
 
   return (
     <div className="flex flex-col gap-4">
+      {puedeRegistrar && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className="rounded-md px-4 py-2 text-sm font-bold uppercase tracking-wide text-white transition-colors"
+            style={{ backgroundColor: "var(--brand-primary)" }}
+          >
+            {showForm ? "Cerrar formulario" : "+ Nuevo emprendedor"}
+          </button>
+        </div>
+      )}
+
+      {showForm && puedeRegistrar && <NuevoEmprendedorForm onDone={() => setShowForm(false)} />}
+
       <Card title="Filtros">
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
