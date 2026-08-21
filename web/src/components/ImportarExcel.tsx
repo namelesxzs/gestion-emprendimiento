@@ -57,7 +57,20 @@ export function ImportarExcel() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card title="1. Subir archivo" subtitle="Solo se admite la hoja «Emprendedores» de la plantilla oficial (.xlsx)">
+      <Card
+        title="1. Descargar plantilla"
+        subtitle="Encabezados correctos, una fila de ejemplo resaltada y listas desplegables para Etapa y Estado"
+      >
+        <a
+          href="/api/plantilla"
+          className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-bold uppercase tracking-wide transition-colors"
+          style={{ borderColor: "var(--brand-primary)", color: "var(--brand-primary)" }}
+        >
+          ⬇ Descargar plantilla (.xlsx)
+        </a>
+      </Card>
+
+      <Card title="2. Subir archivo" subtitle="Solo se admite la hoja «Emprendedores» de la plantilla oficial (.xlsx)">
         <form action={analizarAction} className="flex flex-wrap items-end gap-3">
           <input
             ref={fileInputRef}
@@ -86,7 +99,7 @@ export function ImportarExcel() {
 
       {resultado && (
         <>
-          <Card title="2. Previsualización" subtitle="Nada se modifica en la base de datos todavía">
+          <Card title="3. Previsualización" subtitle="Nada se modifica en la base de datos todavía">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Stat label="Nuevos" value={resultado.nuevos} color="var(--status-good)" />
               <Stat label="Actualizados" value={resultado.actualizados} color="var(--status-warning)" />
@@ -106,7 +119,7 @@ export function ImportarExcel() {
             </div>
           </Card>
 
-          <Card title="3. Confirmar">
+          <Card title="4. Confirmar">
             <form action={confirmarAction} className="flex flex-col gap-3">
               <input type="hidden" name="archivoBase64" value={analizarState.archivoBase64} />
               <input type="hidden" name="nombreArchivo" value={analizarState.nombreArchivo} />
