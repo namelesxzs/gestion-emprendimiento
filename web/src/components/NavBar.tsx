@@ -30,6 +30,7 @@ export function NavBar() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const isLoginPage = pathname === "/login";
+  const puedeImportar = session?.user.rol === "ADMINISTRADOR" || session?.user.rol === "DOCENTE";
   const links = session?.user.rol === "EMPRENDEDOR" ? LINKS_EMPRENDEDOR : LINKS;
 
   return (
@@ -88,6 +89,19 @@ export function NavBar() {
                   </Link>
                 );
               })}
+
+              {puedeImportar && (
+                <Link
+                  href="/importar"
+                  className={`border-b-2 pb-1 text-sm font-bold tracking-wide uppercase transition-colors ${
+                    pathname === "/importar"
+                      ? "[color:var(--brand-primary)] [border-color:var(--brand-primary)]"
+                      : "border-transparent [color:var(--text-primary)] hover:[color:var(--brand-primary)] hover:[border-color:var(--brand-primary)]"
+                  }`}
+                >
+                  Importar Excel
+                </Link>
+              )}
 
               {status === "authenticated" && session?.user && (
                 <div className="flex items-center gap-3 border-l pl-6" style={{ borderColor: "var(--border-hairline)" }}>
