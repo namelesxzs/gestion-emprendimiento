@@ -1,65 +1,89 @@
-import Image from "next/image";
+import { StatTile } from "@/components/StatTile";
+import { Card } from "@/components/Card";
+import { EtapaBarChart } from "@/components/EtapaBarChart";
+import { EmprendedoresTable } from "@/components/EmprendedoresTable";
+import { ProximasReuniones } from "@/components/ProximasReuniones";
+import {
+  emprendedores,
+  getEtapaDistribution,
+  getKpis,
+  getProximasReuniones,
+  getUltimoAvance,
+} from "@/lib/mock-data";
 
 export default function Home() {
+  const kpis = getKpis();
+  const distribucion = getEtapaDistribution();
+  const proximasReuniones = getProximasReuniones();
+  const filasEmprendedores = emprendedores.map((e) => ({
+    ...e,
+    avance: getUltimoAvance(e.id),
+  }));
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
+      <header>
+        <p
+          className="text-xs font-medium uppercase tracking-wide"
+          style={{ color: "var(--brand-primary)" }}
+        >
+          Unidad de Innovación y Emprendimiento
+        </p>
+        <h1
+          className="mt-1 text-2xl font-bold"
+          style={{ color: "var(--brand-ink)", fontFamily: "var(--font-brand)" }}
+        >
+          Acompañamiento a Emprendedores
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Vista general del proceso de acompañamiento y avance por la cadena de valor
+          (Descubrir · Incubar · Formar · Fomentar · Financiar). Datos de ejemplo — sin
+          conexión a la fuente de datos real todavía.
+        </p>
+      </header>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatTile
+          label="Total emprendedores"
+          value={kpis.totalEmprendedores}
+          accent="var(--etapa-descubrir)"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <StatTile
+          label="Emprendedores activos"
+          value={kpis.activos}
+          accent="var(--status-good)"
+        />
+        <StatTile
+          label="Acompañamientos realizados"
+          value={kpis.totalAcompanamientos}
+          accent="var(--etapa-formar)"
+        />
+        <StatTile
+          label="Avance promedio"
+          value={`${kpis.avancePromedio}%`}
+          accent="var(--etapa-fomentar)"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <Card
+            title="Emprendedores por etapa"
+            subtitle="Distribución sobre la cadena de valor institucional"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <EtapaBarChart data={distribucion} />
+          </Card>
         </div>
-      </main>
-    </div>
+        <div className="lg:col-span-2">
+          <Card title="Próximas reuniones" subtitle="Programadas o reagendadas">
+            <ProximasReuniones reuniones={proximasReuniones} />
+          </Card>
+        </div>
+      </div>
+
+      <Card title="Emprendedores" subtitle="Listado con la última medición de avance registrada">
+        <EmprendedoresTable rows={filasEmprendedores} />
+      </Card>
+    </main>
   );
 }
