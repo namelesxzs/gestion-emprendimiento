@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Plataforma UIE — Acompañamiento a Emprendedores
 
-## Getting Started
+Plataforma web para la gestión integral del acompañamiento a emprendedores de la
+Unidad de Innovación y Emprendimiento (UIE) de la Fundación Universitaria María Cano.
 
-First, run the development server:
+Permite registrar emprendedores, llevar su acompañamiento como una historia
+evolutiva (diagnóstico, recomendaciones, compromisos), gestionar reuniones,
+hacer seguimiento por la cadena de valor institucional
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Descubrir → Incubar → Formar → Fomentar → Financiar
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+y visualizar KPIs para apoyar la toma de decisiones.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Estado actual
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+En desarrollo activo. Hoy la app corre sobre datos de ejemplo
+(`src/lib/mock-data.ts`, calcados 1:1 del esquema de
+`Plantilla_Proyecto_UIE_Cadena_Valor.xlsx`) — todavía no hay backend, base de
+datos ni autenticación. Ver la auditoría técnica y el roadmap del proyecto
+para el estado detallado y las fases planeadas.
 
-## Learn More
+## Stack
 
-To learn more about Next.js, take a look at the following resources:
+- [Next.js](https://nextjs.org) (App Router) + React + TypeScript
+- Tailwind CSS v4
+- Identidad visual institucional (fumc.edu.co): Montserrat + Didact Gothic,
+  paleta azul-cian de marca
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Desarrollo
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm install
+npm run dev
+```
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Abre [http://localhost:3000](http://localhost:3000).
