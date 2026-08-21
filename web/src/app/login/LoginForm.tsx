@@ -1,10 +1,21 @@
 "use client";
 
-import { useActionState } from "react";
-import { authenticate } from "./actions";
+import { useActionState, useEffect } from "react";
+import { authenticate, type LoginState } from "./actions";
+
+const initialState: LoginState = {};
 
 export function LoginForm() {
-  const [error, formAction, isPending] = useActionState(authenticate, undefined);
+  const [state, formAction, isPending] = useActionState(authenticate, initialState);
+
+  useEffect(() => {
+    if (state.success) {
+      // Navegación dura a propósito: fuerza que el layout raíz se vuelva a
+      // ejecutar en servidor y lea la sesión ya autenticada, en vez de una
+      // transición de cliente que reutilizaría el layout previo (sin sesión).
+      window.location.href = "/";
+    }
+  }, [state]);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -38,19 +49,19 @@ export function LoginForm() {
         />
       </div>
 
-      {error && (
+      {state.error && (
         <p className="text-sm" style={{ color: "var(--status-critical)" }}>
-          {error}
+          {state.error}
         </p>
       )}
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || state.success}
         className="mt-2 rounded-md px-4 py-2 text-sm font-bold uppercase tracking-wide text-white transition-colors disabled:opacity-60"
         style={{ backgroundColor: "var(--brand-primary)" }}
       >
-        {isPending ? "Ingresando..." : "Ingresar"}
+        {state.success ? "Ingresando..." : isPending ? "Verificando..." : "Ingresar"}
       </button>
     </form>
   );
