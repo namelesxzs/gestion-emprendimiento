@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import type {
   Acompanamiento,
+  Compromiso,
+  Docente,
   Emprendedor,
   Etapa,
   EstadoCompromiso,
@@ -82,4 +84,63 @@ export async function getAllReuniones(soloEmprendedorId?: string): Promise<Reuni
     accion: r.accion,
     observaciones: r.observaciones,
   }));
+}
+
+/** Vista plana de Compromiso (sin pasar por Acompanamiento) — la usan los
+ * KPIs institucionales de cumplimiento, que necesitan cada compromiso por
+ * separado y no solo el primero, como sí hace getAllAcompanamientos. */
+export async function getAllCompromisos(): Promise<Compromiso[]> {
+  const rows = await prisma.compromiso.findMany({
+    orderBy: { fechaCompromiso: "desc" },
+  });
+
+  return rows.map((c) => ({
+    id: c.id,
+    acompanamientoId: c.acompanamientoId,
+    descripcion: c.descripcion,
+    fechaCompromiso: fmtDate(c.fechaCompromiso),
+    fechaCumplimiento: c.fechaCumplimiento ? fmtDate(c.fechaCumplimiento) : null,
+    estado: c.estado as EstadoCompromiso,
+  }));
+}
+
+export async function getDocentes(): Promise<Docente[]> {
+  const rows = await prisma.usuario.findMany({
+    where: { rol: "DOCENTE" },
+    orderBy: { nombre: "asc" },
+  });
+
+  return rows.map((d) => ({
+    id: d.id,
+    nombre: d.nombre,
+    correo: d.correo,
+    sede: d.sede,
+    activo: d.activo,
+  }));
+}
+
+export interface EmprendedoresPorSede {
+  sede: string;
+  total: number;
+  activos: number;
+}
+
+/** Agregación por sede del Docente responsable — no viaja por el tipo
+ * Emprendedor (que no expone sede) porque solo la usa el panel de
+ * indicadores institucionales. */
+export async function getEmprendedoresPorSede(): Promise<EmprendedoresPorSede[]> {
+  const rows = await prisma.emprendedor.findMany({
+    select: { estado: true, responsable: { select: { sede: true } } },
+  });
+
+  const mapa = new Map<string, EmprendedoresPorSede>();
+  for (const r of rows) {
+    const sede = r.responsable?.sede ?? "Sin sede asignada";
+    const actual = mapa.get(sede) ?? { sede, total: 0, activos: 0 };
+    actual.total += 1;
+    if (r.estado === "Activo") actual.activos += 1;
+    mapa.set(sede, actual);
+  }
+
+  return Array.from(mapa.values()).sort((a, b) => b.total - a.total);
 }

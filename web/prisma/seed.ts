@@ -6,9 +6,9 @@ const ETAPA_ORDER = ["Descubrir", "Incubar", "Formar", "Fomentar", "Financiar"] 
 type Etapa = (typeof ETAPA_ORDER)[number];
 
 const DOCENTES = [
-  { nombre: "Docente A", correo: "docente.a@uie.local" },
-  { nombre: "Docente B", correo: "docente.b@uie.local" },
-  { nombre: "Docente C", correo: "docente.c@uie.local" },
+  { nombre: "Docente A", correo: "docente.a@uie.local", sede: "Medellín" },
+  { nombre: "Docente B", correo: "docente.b@uie.local", sede: "Neiva" },
+  { nombre: "Docente C", correo: "docente.c@uie.local", sede: "Popayán" },
 ];
 
 const EMPRENDEDORES_SEED = [
@@ -85,7 +85,7 @@ async function main() {
   const docentesPorNombre = new Map<string, string>();
   for (const d of DOCENTES) {
     const u = await prisma.usuario.create({
-      data: { nombre: d.nombre, correo: d.correo, passwordHash, rol: "DOCENTE" },
+      data: { nombre: d.nombre, correo: d.correo, passwordHash, rol: "DOCENTE", sede: d.sede },
     });
     docentesPorNombre.set(d.nombre, u.id);
   }

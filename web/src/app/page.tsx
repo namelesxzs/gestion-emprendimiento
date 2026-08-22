@@ -4,8 +4,15 @@ import { EtapaBarChart } from "@/components/EtapaBarChart";
 import { EmprendedoresTable } from "@/components/EmprendedoresTable";
 import { ProximasReuniones } from "@/components/ProximasReuniones";
 import { MiPerfilDashboard } from "@/components/MiPerfilDashboard";
+import { IndicadoresDashboard } from "@/components/IndicadoresDashboard";
 import { auth } from "@/auth";
-import { getAllAcompanamientos, getAllReuniones, getEmprendedores } from "@/lib/queries";
+import {
+  getAllAcompanamientos,
+  getAllCompromisos,
+  getAllReuniones,
+  getEmprendedores,
+  getEmprendedoresPorSede,
+} from "@/lib/queries";
 import { getEtapaDistribution, getKpis, getProximasReuniones, getUltimoAvance } from "@/lib/view";
 
 export default async function Home() {
@@ -43,6 +50,44 @@ export default async function Home() {
             Tu cuenta no está vinculada a ningún registro de emprendedor todavía.
           </p>
         )}
+      </main>
+    );
+  }
+
+  // Fase 6: Coordinador y Administrador supervisan la institución, no la
+  // operación día a día — reciben el panel de indicadores puro en vez del
+  // dashboard operativo (tabla de emprendedores + próximas reuniones).
+  if (session?.user.rol === "COORDINADOR" || session?.user.rol === "ADMINISTRADOR") {
+    const [emprendedores, acompanamientos, reuniones, compromisos, emprendedoresPorSede] = await Promise.all([
+      getEmprendedores(),
+      getAllAcompanamientos(),
+      getAllReuniones(),
+      getAllCompromisos(),
+      getEmprendedoresPorSede(),
+    ]);
+
+    return (
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
+        <header>
+          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--brand-primary)" }}>
+            Unidad de Innovación y Emprendimiento
+          </p>
+          <h1 className="mt-1 text-2xl font-bold" style={{ color: "var(--brand-ink)", fontFamily: "var(--font-brand)" }}>
+            Indicadores institucionales
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Vista de solo indicadores — para operación día a día, ve a Emprendedores,
+            Acompañamientos o Reuniones.
+          </p>
+        </header>
+
+        <IndicadoresDashboard
+          emprendedores={emprendedores}
+          acompanamientos={acompanamientos}
+          reuniones={reuniones}
+          compromisos={compromisos}
+          emprendedoresPorSede={emprendedoresPorSede}
+        />
       </main>
     );
   }

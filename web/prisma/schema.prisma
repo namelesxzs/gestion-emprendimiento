@@ -18,6 +18,9 @@ model Usuario {
   correo        String    @unique
   passwordHash  String
   rol           String // ADMINISTRADOR | DOCENTE | COORDINADOR | EMPRENDEDOR
+  // Sede física a la que pertenece — obligatoria para DOCENTE (alimenta los
+  // KPIs institucionales por sede), no aplica a los demás roles.
+  sede          String?
   activo        Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -33,6 +36,7 @@ model Usuario {
   importRuns          ImportRun[]
 
   @@index([rol])
+  @@index([sede])
 }
 
 model Emprendedor {

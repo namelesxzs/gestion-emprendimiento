@@ -46,3 +46,20 @@ export interface Reunion {
   accion: string;
   observaciones: string;
 }
+
+export interface Compromiso {
+  id: string;
+  acompanamientoId: string;
+  descripcion: string;
+  fechaCompromiso: string;
+  fechaCumplimiento: string | null;
+  estado: EstadoCompromiso;
+}
+
+export interface Docente {
+  id: string;
+  nombre: string;
+  correo: string;
+  sede: string | null;
+  activo: boolean;
+}

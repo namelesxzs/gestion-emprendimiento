@@ -31,6 +31,7 @@ export function NavBar() {
   const { data: session, status } = useSession();
   const isLoginPage = pathname === "/login";
   const puedeImportar = session?.user.rol === "ADMINISTRADOR" || session?.user.rol === "DOCENTE";
+  const puedeGestionarUsuarios = session?.user.rol === "ADMINISTRADOR";
   const links = session?.user.rol === "EMPRENDEDOR" ? LINKS_EMPRENDEDOR : LINKS;
 
   return (
@@ -100,6 +101,19 @@ export function NavBar() {
                   }`}
                 >
                   Importar Excel
+                </Link>
+              )}
+
+              {puedeGestionarUsuarios && (
+                <Link
+                  href="/usuarios"
+                  className={`border-b-2 pb-1 text-sm font-bold tracking-wide uppercase transition-colors ${
+                    pathname === "/usuarios"
+                      ? "[color:var(--brand-primary)] [border-color:var(--brand-primary)]"
+                      : "border-transparent [color:var(--text-primary)] hover:[color:var(--brand-primary)] hover:[border-color:var(--brand-primary)]"
+                  }`}
+                >
+                  Usuarios
                 </Link>
               )}
 
