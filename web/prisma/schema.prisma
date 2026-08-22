@@ -164,3 +164,15 @@ model ImportRun {
   emprendedoresAfectados Emprendedor[] @relation("EmprendedoresAfectados")
   emprendedoresUltimaImportacion Emprendedor[] @relation("UltimaImportacion")
 }
+
+// Rate limiting de login (Fase 10) — un registro por intento, exitoso o
+// no. Sin FK a Usuario a propósito: también se registran intentos con
+// correos que no existen, para frenar fuerza bruta/enumeración igual.
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  correo    String
+  exitoso   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([correo, createdAt])
+}

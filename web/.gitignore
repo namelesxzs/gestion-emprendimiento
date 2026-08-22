@@ -46,3 +46,7 @@ next-env.d.ts
 # prisma sqlite local db
 /dev.db
 /dev.db-journal
+
+# sqlite de test (vitest.globalSetup.mts la crea y la borra sola)
+/test.db
+/test.db-journal

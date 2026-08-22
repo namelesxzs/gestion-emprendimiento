@@ -2,6 +2,7 @@ import NextAuth, { type Session } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { registrarIntentoLogin } from "@/lib/loginRateLimit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -18,9 +19,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!correo || !password) return null;
 
         const usuario = await prisma.usuario.findUnique({ where: { correo } });
-        if (!usuario || !usuario.activo) return null;
+        if (!usuario || !usuario.activo) {
+          // Se registra igual con correo inexistente/inactivo — si no, un
+          // ataque de enumeración quedaría fuera del límite de intentos.
+          await registrarIntentoLogin(correo, false);
+          return null;
+        }
 
         const valido = await bcrypt.compare(password, usuario.passwordHash);
+        await registrarIntentoLogin(correo, valido);
         if (!valido) return null;
 
         return {
