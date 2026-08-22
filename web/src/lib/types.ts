@@ -56,10 +56,14 @@ export interface Compromiso {
   estado: EstadoCompromiso;
 }
 
-export interface Docente {
+/** Usuario de personal UIE (Administrador/Docente/Coordinador) tal como se
+ * lista y gestiona en /usuarios. Las cuentas EMPRENDEDOR no pasan por este
+ * tipo — viven atadas a un registro de Emprendedor, ver otorgarAccesoPortal. */
+export interface UsuarioGestionable {
   id: string;
   nombre: string;
   correo: string;
+  rol: "ADMINISTRADOR" | "DOCENTE" | "COORDINADOR";
   sede: string | null;
   activo: boolean;
 }

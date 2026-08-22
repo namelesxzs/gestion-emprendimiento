@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { EmprendedoresExplorer } from "@/components/EmprendedoresExplorer";
 import { auth } from "@/auth";
-import { getAllAcompanamientos, getAllReuniones, getEmprendedores } from "@/lib/queries";
+import { getAllAcompanamientos, getAllReuniones, getEmprendedores, getEmprendedorIdsConPortal } from "@/lib/queries";
 import { getUltimoAvance } from "@/lib/view";
 
 export default async function EmprendedoresPage() {
@@ -13,10 +13,11 @@ export default async function EmprendedoresPage() {
     redirect("/");
   }
 
-  const [emprendedores, acompanamientos, reuniones] = await Promise.all([
+  const [emprendedores, acompanamientos, reuniones, emprendedorIdsConPortal] = await Promise.all([
     getEmprendedores(),
     getAllAcompanamientos(),
     getAllReuniones(),
+    getEmprendedorIdsConPortal(),
   ]);
 
   const rows = emprendedores.map((e) => ({
@@ -44,7 +45,12 @@ export default async function EmprendedoresPage() {
         </p>
       </header>
 
-      <EmprendedoresExplorer rows={rows} acompanamientos={acompanamientos} reuniones={reuniones} />
+      <EmprendedoresExplorer
+        rows={rows}
+        acompanamientos={acompanamientos}
+        reuniones={reuniones}
+        emprendedorIdsConPortal={emprendedorIdsConPortal}
+      />
     </main>
   );
 }

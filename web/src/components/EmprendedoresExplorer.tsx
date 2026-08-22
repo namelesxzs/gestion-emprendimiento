@@ -10,6 +10,7 @@ import { EtapaBadge } from "./EtapaBadge";
 import { Card } from "./Card";
 import { NuevoEmprendedorForm } from "./NuevoEmprendedorForm";
 import { EditarEmprendedorForm } from "./EditarEmprendedorForm";
+import { AccesoPortalControl } from "./AccesoPortalControl";
 import { ETAPA_COLOR_VAR } from "./etapa-colors";
 
 interface Row extends Emprendedor {
@@ -22,10 +23,12 @@ export function EmprendedoresExplorer({
   rows,
   acompanamientos,
   reuniones,
+  emprendedorIdsConPortal,
 }: {
   rows: Row[];
   acompanamientos: Acompanamiento[];
   reuniones: Reunion[];
+  emprendedorIdsConPortal: Set<string>;
 }) {
   const [etapaFilter, setEtapaFilter] = useState<Set<Etapa>>(new Set(ETAPA_ORDER));
   const [estadoFilter, setEstadoFilter] = useState<Set<EstadoEmprendedor>>(
@@ -157,6 +160,10 @@ export function EmprendedoresExplorer({
               >
                 ⬇ Ficha (PDF)
               </a>
+              <AccesoPortalControl
+                emprendedorId={selected.id}
+                yaTieneAcceso={emprendedorIdsConPortal.has(selected.id)}
+              />
               {puedeRegistrar && (
                 <button
                   type="button"

@@ -2,13 +2,13 @@ import { prisma } from "@/lib/prisma";
 import type {
   Acompanamiento,
   Compromiso,
-  Docente,
   Emprendedor,
   Etapa,
   EstadoCompromiso,
   EstadoEmprendedor,
   EstadoReunion,
   Reunion,
+  UsuarioGestionable,
 } from "@/lib/types";
 
 function fmtDate(d: Date): string {
@@ -104,19 +104,30 @@ export async function getAllCompromisos(): Promise<Compromiso[]> {
   }));
 }
 
-export async function getDocentes(): Promise<Docente[]> {
+export async function getUsuarios(): Promise<UsuarioGestionable[]> {
   const rows = await prisma.usuario.findMany({
-    where: { rol: "DOCENTE" },
-    orderBy: { nombre: "asc" },
+    where: { rol: { in: ["ADMINISTRADOR", "DOCENTE", "COORDINADOR"] } },
+    orderBy: [{ rol: "asc" }, { nombre: "asc" }],
   });
 
-  return rows.map((d) => ({
-    id: d.id,
-    nombre: d.nombre,
-    correo: d.correo,
-    sede: d.sede,
-    activo: d.activo,
+  return rows.map((u) => ({
+    id: u.id,
+    nombre: u.nombre,
+    correo: u.correo,
+    rol: u.rol as UsuarioGestionable["rol"],
+    sede: u.sede,
+    activo: u.activo,
   }));
+}
+
+/** IDs de Emprendedor que ya tienen cuenta de portal — para no ofrecer
+ * "Dar acceso al portal" dos veces sobre el mismo registro. */
+export async function getEmprendedorIdsConPortal(): Promise<Set<string>> {
+  const rows = await prisma.usuario.findMany({
+    where: { rol: "EMPRENDEDOR", emprendedorId: { not: null } },
+    select: { emprendedorId: true },
+  });
+  return new Set(rows.map((r) => r.emprendedorId as string));
 }
 
 export interface EmprendedoresPorSede {

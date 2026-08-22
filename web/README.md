@@ -37,7 +37,7 @@ Ver [Roadmap](#roadmap) para el detalle por fase.
 | **Emprendedor** | Ver su propio progreso, historial y reuniones (`/`, `/acompanamientos`, `/reuniones` acotados a sí mismo) | Ver otros emprendedores, mutar nada, importar/exportar, auditoría |
 | **Docente** | Registrar/editar emprendedores, acompañamientos y reuniones; importar Excel; exportar Excel/PDF | Gestionar usuarios, ver auditoría, dashboard de indicadores (ve el operativo) |
 | **Coordinador** | Ver el panel de indicadores institucionales (`/`, solo lectura); exportar Excel/PDF | Mutar datos operativos, gestionar usuarios, ver auditoría |
-| **Administrador** | Todo lo anterior + registrar Docentes (`/usuarios`) + consultar auditoría (`/auditoria`) | — |
+| **Administrador** | Todo lo anterior + gestionar usuarios de personal UIE (`/usuarios`: alta, edición, activar/desactivar, restablecer contraseña, cualquier rol) + dar acceso al portal a un Emprendedor (desde su detalle en `/emprendedores`) + consultar auditoría (`/auditoria`) | — |
 
 La autorización se verifica siempre en el servidor (`requireRole` en cada server
 action y route handler) — nunca solo ocultando botones en el cliente. Ver
@@ -78,7 +78,9 @@ correr la suite, y borra al terminar. Incluye:
 - Integración contra base de datos real: `src/lib/importer.ts` (parseo + diff),
   `src/app/importar/actions.ts` (transacción completa: alta/actualización +
   auditoría + idempotencia al reimportar), `src/lib/loginRateLimit.ts` y
-  `src/app/login/actions.ts` (bloqueo por intentos fallidos).
+  `src/app/login/actions.ts` (bloqueo por intentos fallidos), y
+  `src/app/usuarios/actions.ts` (alta/edición/activar-desactivar/reset de
+  contraseña, y alta de cuenta de portal para un Emprendedor).
 
 Los tests de integración mockean `@/auth` (sesión) y `next/cache` (`revalidatePath`,
 que solo funciona dentro de una request real de Next) — todo lo demás corre
@@ -101,4 +103,5 @@ corrigieron todavía).
 - [x] Fase 7 — Exportaciones a Excel y PDF
 - [x] Fase 8 — Pantalla de auditoría
 - [x] Fase 10 — Testing, seguridad y documentación
-- [ ] Fase 4 — Gestión de usuarios más allá del alta de Docente (edición, roles, desactivación)
+- [x] Fase 4 — Gestión de usuarios (editar, activar/desactivar, restablecer contraseña,
+      alta de cualquier rol, dar acceso al portal a un Emprendedor)
