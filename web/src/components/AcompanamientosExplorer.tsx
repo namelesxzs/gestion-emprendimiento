@@ -27,6 +27,16 @@ export function AcompanamientosExplorer({
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <a
+          href="/api/exportar/acompanamientos"
+          className="rounded-md border px-4 py-2 text-sm font-bold uppercase tracking-wide transition-colors"
+          style={{ borderColor: "var(--brand-primary)", color: "var(--brand-primary)" }}
+        >
+          ⬇ Exportar historial completo (Excel)
+        </a>
+      </div>
+
       {emprendedores.length > 1 && (
         <Card title="Emprendedor">
           <div className="flex flex-wrap gap-2">

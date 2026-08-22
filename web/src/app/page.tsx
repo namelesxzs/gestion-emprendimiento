@@ -68,17 +68,26 @@ export default async function Home() {
 
     return (
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
-        <header>
-          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--brand-primary)" }}>
-            Unidad de Innovación y Emprendimiento
-          </p>
-          <h1 className="mt-1 text-2xl font-bold" style={{ color: "var(--brand-ink)", fontFamily: "var(--font-brand)" }}>
-            Indicadores institucionales
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            Vista de solo indicadores — para operación día a día, ve a Emprendedores,
-            Acompañamientos o Reuniones.
-          </p>
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--brand-primary)" }}>
+              Unidad de Innovación y Emprendimiento
+            </p>
+            <h1 className="mt-1 text-2xl font-bold" style={{ color: "var(--brand-ink)", fontFamily: "var(--font-brand)" }}>
+              Indicadores institucionales
+            </h1>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+              Vista de solo indicadores — para operación día a día, ve a Emprendedores,
+              Acompañamientos o Reuniones.
+            </p>
+          </div>
+          <a
+            href="/api/exportar/indicadores"
+            className="shrink-0 rounded-md border px-4 py-2 text-sm font-bold uppercase tracking-wide transition-colors"
+            style={{ borderColor: "var(--brand-primary)", color: "var(--brand-primary)" }}
+          >
+            ⬇ Exportar a PDF
+          </a>
         </header>
 
         <IndicadoresDashboard

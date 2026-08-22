@@ -70,10 +70,19 @@ export function EmprendedoresExplorer({
   const reunionesSeleccionado = selected ? getReunionesByEmprendedor(reuniones, selected.id) : [];
   const ultimoAcompanamiento = acompanamientosSeleccionado[0];
 
+  const exportarHref = `/api/exportar/emprendedores?etapas=${[...etapaFilter].join(",")}&estados=${[...estadoFilter].join(",")}`;
+
   return (
     <div className="flex flex-col gap-4">
-      {puedeRegistrar && (
-        <div className="flex justify-end">
+      <div className="flex justify-between gap-3">
+        <a
+          href={exportarHref}
+          className="rounded-md border px-4 py-2 text-sm font-bold uppercase tracking-wide transition-colors"
+          style={{ borderColor: "var(--brand-primary)", color: "var(--brand-primary)" }}
+        >
+          ⬇ Exportar a Excel
+        </a>
+        {puedeRegistrar && (
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
@@ -82,8 +91,8 @@ export function EmprendedoresExplorer({
           >
             {showForm ? "Cerrar formulario" : "+ Nuevo emprendedor"}
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {showForm && puedeRegistrar && <NuevoEmprendedorForm onDone={() => setShowForm(false)} />}
 
@@ -140,16 +149,25 @@ export function EmprendedoresExplorer({
           title={selected.nombre}
           subtitle={`${selected.emprendimiento} · ${selected.sector}`}
           action={
-            puedeRegistrar && (
-              <button
-                type="button"
-                onClick={() => setShowEditForm(true)}
+            <div className="flex items-center gap-4">
+              <a
+                href={`/api/exportar/emprendedores/${selected.id}/ficha`}
                 className="text-xs font-bold uppercase tracking-wide"
                 style={{ color: "var(--brand-primary)" }}
               >
-                Editar
-              </button>
-            )
+                ⬇ Ficha (PDF)
+              </a>
+              {puedeRegistrar && (
+                <button
+                  type="button"
+                  onClick={() => setShowEditForm(true)}
+                  className="text-xs font-bold uppercase tracking-wide"
+                  style={{ color: "var(--brand-primary)" }}
+                >
+                  Editar
+                </button>
+              )}
+            </div>
           }
         >
           <div className="flex flex-col gap-5">
