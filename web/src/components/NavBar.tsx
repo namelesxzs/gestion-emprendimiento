@@ -117,6 +117,19 @@ export function NavBar() {
                 </Link>
               )}
 
+              {puedeGestionarUsuarios && (
+                <Link
+                  href="/auditoria"
+                  className={`border-b-2 pb-1 text-sm font-bold tracking-wide uppercase transition-colors ${
+                    pathname === "/auditoria"
+                      ? "[color:var(--brand-primary)] [border-color:var(--brand-primary)]"
+                      : "border-transparent [color:var(--text-primary)] hover:[color:var(--brand-primary)] hover:[border-color:var(--brand-primary)]"
+                  }`}
+                >
+                  Auditoría
+                </Link>
+              )}
+
               {status === "authenticated" && session?.user && (
                 <div className="flex items-center gap-3 border-l pl-6" style={{ borderColor: "var(--border-hairline)" }}>
                   <div className="text-right leading-tight">

@@ -144,3 +144,79 @@ export async function getEmprendedoresPorSede(): Promise<EmprendedoresPorSede[]>
 
   return Array.from(mapa.values()).sort((a, b) => b.total - a.total);
 }
+
+export interface AuditLogRow {
+  id: string;
+  createdAt: string;
+  usuarioNombre: string | null;
+  rolSnapshot: string | null;
+  entidad: string;
+  entidadId: string;
+  accion: string;
+  origen: string;
+  resultado: string;
+  valorAnterior: Record<string, unknown> | null;
+  valorNuevo: Record<string, unknown> | null;
+}
+
+export interface AuditLogFiltros {
+  entidad?: string;
+  accion?: string;
+  origen?: string;
+  resultado?: string;
+  usuarioId?: string;
+  desde?: string;
+  hasta?: string;
+}
+
+const AUDIT_PAGE_SIZE = 25;
+
+export async function getAuditLogs(filtros: AuditLogFiltros, page: number) {
+  const where = {
+    entidad: filtros.entidad || undefined,
+    accion: filtros.accion || undefined,
+    origen: filtros.origen || undefined,
+    resultado: filtros.resultado || undefined,
+    usuarioId: filtros.usuarioId || undefined,
+    createdAt:
+      filtros.desde || filtros.hasta
+        ? {
+            gte: filtros.desde ? new Date(`${filtros.desde}T00:00:00`) : undefined,
+            lte: filtros.hasta ? new Date(`${filtros.hasta}T23:59:59`) : undefined,
+          }
+        : undefined,
+  };
+
+  const paginaActual = Math.max(1, page);
+
+  const [rows, total] = await Promise.all([
+    prisma.auditLog.findMany({
+      where,
+      include: { usuario: { select: { nombre: true } } },
+      orderBy: { createdAt: "desc" },
+      skip: (paginaActual - 1) * AUDIT_PAGE_SIZE,
+      take: AUDIT_PAGE_SIZE,
+    }),
+    prisma.auditLog.count({ where }),
+  ]);
+
+  const logs: AuditLogRow[] = rows.map((r) => ({
+    id: r.id,
+    createdAt: r.createdAt.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }),
+    usuarioNombre: r.usuario?.nombre ?? null,
+    rolSnapshot: r.rolSnapshot,
+    entidad: r.entidad,
+    entidadId: r.entidadId,
+    accion: r.accion,
+    origen: r.origen,
+    resultado: r.resultado,
+    valorAnterior: r.valorAnterior as Record<string, unknown> | null,
+    valorNuevo: r.valorNuevo as Record<string, unknown> | null,
+  }));
+
+  return { logs, total, page: paginaActual, pageSize: AUDIT_PAGE_SIZE };
+}
+
+export async function getUsuariosBasico(): Promise<{ id: string; nombre: string }[]> {
+  return prisma.usuario.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: "asc" } });
+}
