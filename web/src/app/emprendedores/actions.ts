@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, AuthzError } from "@/lib/authz";
 import { registrarAuditoria } from "@/lib/audit";
 import { emprendedorCreateSchema, emprendedorUpdateSchema } from "@/lib/validation/emprendedor";
+import { ETAPA_ORDER } from "@/lib/view";
+import type { Etapa } from "@/lib/types";
+import { verificarReglaAvance } from "@/lib/reglasAvance";
 
 export type RegistrarEmprendedorState = { error?: string; success?: boolean };
 
@@ -31,6 +34,7 @@ export async function registrarEmprendedor(
     fechaIngreso: formData.get("fechaIngreso"),
     correo: formData.get("correo"),
     telefono: formData.get("telefono"),
+    faseId: formData.get("faseId") || undefined,
   });
 
   if (!parsed.success) {
@@ -53,6 +57,7 @@ export async function registrarEmprendedor(
         fechaIngreso: new Date(`${parsed.data.fechaIngreso}T00:00:00`),
         correo: parsed.data.correo,
         telefono: parsed.data.telefono,
+        faseId: parsed.data.faseId || null,
         responsableId: session.user.rol === "DOCENTE" ? session.user.id : undefined,
       },
     });
@@ -108,6 +113,7 @@ export async function editarEmprendedor(
     fechaIngreso: formData.get("fechaIngreso"),
     correo: formData.get("correo"),
     telefono: formData.get("telefono"),
+    faseId: formData.get("faseId") || undefined,
   });
 
   if (!parsed.success) {
@@ -119,11 +125,36 @@ export async function editarEmprendedor(
     return { error: "El emprendedor que intentas editar ya no existe." };
   }
 
+  // Eje independiente de la etapa (ver auditoría §07): si cambia la fase,
+  // se consulta el motor de reglas de avance — sin reglas configuradas
+  // para esa transición, el paso queda libre.
+  const nuevaFaseId = parsed.data.faseId || null;
+  if (nuevaFaseId && nuevaFaseId !== actual.faseId) {
+    const verificacion = await verificarReglaAvance(actual.id, actual.faseId, nuevaFaseId);
+    if (!verificacion.ok) return { error: verificacion.error };
+  }
+
   const correoEnUso = await prisma.emprendedor.findFirst({
     where: { correo: parsed.data.correo, NOT: { id: parsed.data.id } },
   });
   if (correoEnUso) {
     return { error: "Ese correo ya pertenece a otro emprendedor." };
+  }
+
+  // Avanzar de etapa (no corregir hacia atrás, no dejarla igual) exige un
+  // documento de soporte Aprobado para la etapa que se deja — así se
+  // cumple que cada paso de la cadena de valor quede sustentado.
+  const avanzaEtapa =
+    ETAPA_ORDER.indexOf(parsed.data.etapa as Etapa) > ETAPA_ORDER.indexOf(actual.etapa as Etapa);
+  if (avanzaEtapa) {
+    const documentoAprobado = await prisma.documento.findFirst({
+      where: { emprendedorId: actual.id, etapa: actual.etapa, estado: "Aprobado" },
+    });
+    if (!documentoAprobado) {
+      return {
+        error: `Debes tener un documento aprobado de la etapa "${actual.etapa}" antes de avanzar de etapa.`,
+      };
+    }
   }
 
   try {
@@ -138,6 +169,7 @@ export async function editarEmprendedor(
         fechaIngreso: new Date(`${parsed.data.fechaIngreso}T00:00:00`),
         correo: parsed.data.correo,
         telefono: parsed.data.telefono,
+        faseId: nuevaFaseId,
       },
     });
 
@@ -156,6 +188,7 @@ export async function editarEmprendedor(
         telefono: actual.telefono,
         etapa: actual.etapa,
         estado: actual.estado,
+        faseId: actual.faseId,
       },
       valorNuevo: {
         nombre: actualizado.nombre,
@@ -165,6 +198,7 @@ export async function editarEmprendedor(
         telefono: actualizado.telefono,
         etapa: actualizado.etapa,
         estado: actualizado.estado,
+        faseId: actualizado.faseId,
       },
     });
   } catch (error) {

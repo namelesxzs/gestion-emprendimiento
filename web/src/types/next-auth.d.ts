@@ -8,12 +8,14 @@ declare module "next-auth" {
       id: string;
       rol: Rol;
       emprendedorId: string | null;
+      debeCambiarPassword: boolean;
     } & DefaultSession["user"];
   }
 
   interface User {
     rol: Rol;
     emprendedorId: string | null;
+    debeCambiarPassword: boolean;
   }
 }
 
@@ -22,5 +24,6 @@ declare module "next-auth/jwt" {
     id: string;
     rol: Rol;
     emprendedorId: string | null;
+    debeCambiarPassword: boolean;
   }
 }

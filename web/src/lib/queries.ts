@@ -2,14 +2,17 @@ import { prisma } from "@/lib/prisma";
 import type {
   Acompanamiento,
   Compromiso,
+  Documento,
   Emprendedor,
   Etapa,
   EstadoCompromiso,
+  EstadoDocumento,
   EstadoEmprendedor,
   EstadoReunion,
   Reunion,
   UsuarioGestionable,
 } from "@/lib/types";
+import type { CampoRuntime } from "@/lib/validation/catalogo";
 
 function fmtDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -23,7 +26,7 @@ function fmtDate(d: Date): string {
 export async function getEmprendedores(soloEmprendedorId?: string): Promise<Emprendedor[]> {
   const rows = await prisma.emprendedor.findMany({
     where: soloEmprendedorId ? { id: soloEmprendedorId } : undefined,
-    include: { responsable: true },
+    include: { responsable: true, fase: { select: { nombre: true } } },
     orderBy: { nombre: "asc" },
   });
 
@@ -38,6 +41,8 @@ export async function getEmprendedores(soloEmprendedorId?: string): Promise<Empr
     responsable: e.responsable?.nombre ?? "—",
     correo: e.correo,
     telefono: e.telefono,
+    faseId: e.faseId,
+    faseNombre: e.fase?.nombre ?? null,
   }));
 }
 
@@ -104,6 +109,34 @@ export async function getAllCompromisos(): Promise<Compromiso[]> {
   }));
 }
 
+/**
+ * `soloEmprendedorId` acota la consulta a un único emprendedor — mismo
+ * patrón que getEmprendedores/getAllAcompanamientos, para que el rol
+ * EMPRENDEDOR nunca reciba documentos de otros (RF13).
+ */
+export async function getDocumentosByEmprendedor(soloEmprendedorId?: string): Promise<Documento[]> {
+  const rows = await prisma.documento.findMany({
+    where: soloEmprendedorId ? { emprendedorId: soloEmprendedorId } : undefined,
+    include: { subidoPor: { select: { nombre: true } }, revisadoPor: { select: { nombre: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return rows.map((d) => ({
+    id: d.id,
+    emprendedorId: d.emprendedorId,
+    etapa: d.etapa as Etapa,
+    nombreArchivo: d.nombreArchivo,
+    mimeType: d.mimeType,
+    tamanoBytes: d.tamanoBytes,
+    subidoPor: d.subidoPor.nombre,
+    estado: d.estado as EstadoDocumento,
+    comentarioRevision: d.comentarioRevision,
+    revisadoPor: d.revisadoPor?.nombre ?? null,
+    revisadoEn: d.revisadoEn ? d.revisadoEn.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }) : null,
+    createdAt: d.createdAt.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }),
+  }));
+}
+
 export async function getUsuarios(): Promise<UsuarioGestionable[]> {
   const rows = await prisma.usuario.findMany({
     where: { rol: { in: ["ADMINISTRADOR", "DOCENTE", "COORDINADOR"] } },
@@ -117,6 +150,32 @@ export async function getUsuarios(): Promise<UsuarioGestionable[]> {
     rol: u.rol as UsuarioGestionable["rol"],
     sede: u.sede,
     activo: u.activo,
+  }));
+}
+
+export interface SolicitudRestablecimientoRow {
+  id: string;
+  correo: string;
+  usuarioNombre: string;
+  usuarioRol: string;
+  createdAt: string;
+}
+
+/** Solicitudes de "olvidé mi contraseña" (ver /recuperar-acceso) que aún no
+ * ha atendido ningún Administrador. */
+export async function getSolicitudesRestablecimiento(): Promise<SolicitudRestablecimientoRow[]> {
+  const rows = await prisma.solicitudRestablecimiento.findMany({
+    where: { estado: "Pendiente" },
+    include: { usuario: { select: { nombre: true, rol: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return rows.map((s) => ({
+    id: s.id,
+    correo: s.correo,
+    usuarioNombre: s.usuario.nombre,
+    usuarioRol: s.usuario.rol,
+    createdAt: s.createdAt.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }),
   }));
 }
 
@@ -230,4 +289,170 @@ export async function getAuditLogs(filtros: AuditLogFiltros, page: number) {
 
 export async function getUsuariosBasico(): Promise<{ id: string; nombre: string }[]> {
   return prisma.usuario.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: "asc" } });
+}
+
+// --- Catálogo configurable (Fase 11 — ver auditoría §07/§08) --------------
+
+export interface FaseRow {
+  id: string;
+  clave: string;
+  nombre: string;
+  descripcion: string | null;
+  orden: number;
+  activa: boolean;
+}
+
+/** `soloActivas` filtra para las vistas de consumo (p. ej. /ruta o los
+ * selectores de un formulario) — la pantalla de configuración del
+ * Administrador siempre pide todas, activas e inactivas. */
+export async function getFases(soloActivas = false): Promise<FaseRow[]> {
+  const rows = await prisma.fase.findMany({
+    where: soloActivas ? { activa: true } : undefined,
+    orderBy: { orden: "asc" },
+  });
+  return rows.map((f) => ({
+    id: f.id,
+    clave: f.clave,
+    nombre: f.nombre,
+    descripcion: f.descripcion,
+    orden: f.orden,
+    activa: f.activa,
+  }));
+}
+
+export interface EtapaRow {
+  id: string;
+  clave: string;
+  nombre: string;
+  color: string | null;
+  orden: number;
+  activa: boolean;
+  faseId: string | null;
+  faseNombre: string | null;
+}
+
+export async function getEtapasCatalogo(soloActivas = false): Promise<EtapaRow[]> {
+  const rows = await prisma.etapa.findMany({
+    where: soloActivas ? { activa: true } : undefined,
+    include: { fase: { select: { nombre: true } } },
+    orderBy: { orden: "asc" },
+  });
+  return rows.map((e) => ({
+    id: e.id,
+    clave: e.clave,
+    nombre: e.nombre,
+    color: e.color,
+    orden: e.orden,
+    activa: e.activa,
+    faseId: e.faseId,
+    faseNombre: e.fase?.nombre ?? null,
+  }));
+}
+
+export interface InstrumentoRow {
+  id: string;
+  clave: string;
+  nombre: string;
+  proposito: string;
+  origenManual: string | null;
+  momento: string | null;
+  responsableDiligencia: string | null;
+  responsableRevisa: string | null;
+  orden: number;
+  activo: boolean;
+  faseId: string | null;
+  faseNombre: string | null;
+  camposSchema: CampoRuntime[];
+}
+
+export async function getInstrumentos(soloActivos = false): Promise<InstrumentoRow[]> {
+  const rows = await prisma.instrumento.findMany({
+    where: soloActivos ? { activo: true } : undefined,
+    include: { fase: { select: { nombre: true } } },
+    orderBy: { orden: "asc" },
+  });
+  return rows.map((i) => ({
+    id: i.id,
+    clave: i.clave,
+    nombre: i.nombre,
+    proposito: i.proposito,
+    origenManual: i.origenManual,
+    momento: i.momento,
+    responsableDiligencia: i.responsableDiligencia,
+    responsableRevisa: i.responsableRevisa,
+    orden: i.orden,
+    activo: i.activo,
+    faseId: i.faseId,
+    faseNombre: i.fase?.nombre ?? null,
+    camposSchema: (i.camposSchema as unknown as CampoRuntime[]) ?? [],
+  }));
+}
+
+export async function getInstrumentoById(id: string): Promise<InstrumentoRow | null> {
+  const todos = await getInstrumentos();
+  return todos.find((i) => i.id === id) ?? null;
+}
+
+export interface ReglaAvanceRow {
+  id: string;
+  nombre: string;
+  faseOrigenId: string | null;
+  faseOrigenNombre: string | null;
+  faseDestinoId: string;
+  faseDestinoNombre: string;
+  instrumentosClaves: string[];
+  activa: boolean;
+}
+
+export async function getReglasAvance(): Promise<ReglaAvanceRow[]> {
+  const rows = await prisma.reglaAvance.findMany({
+    include: { faseOrigen: { select: { nombre: true } }, faseDestino: { select: { nombre: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    nombre: r.nombre,
+    faseOrigenId: r.faseOrigenId,
+    faseOrigenNombre: r.faseOrigen?.nombre ?? null,
+    faseDestinoId: r.faseDestinoId,
+    faseDestinoNombre: r.faseDestino.nombre,
+    instrumentosClaves: (r.instrumentosClaves as unknown as string[]) ?? [],
+    activa: r.activa,
+  }));
+}
+
+export interface RespuestaInstrumentoRow {
+  id: string;
+  instrumentoId: string;
+  datos: Record<string, unknown>;
+  registradoPorNombre: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RespuestaInstrumentoRowConEmprendedor extends RespuestaInstrumentoRow {
+  emprendedorId: string;
+}
+
+/** Sin `soloEmprendedorId` trae las respuestas de todos — mismo patrón que
+ * getAllAcompanamientos/getDocumentosByEmprendedor, para poblar la lista
+ * completa que luego se filtra en el cliente al seleccionar un
+ * emprendedor. */
+export async function getRespuestasInstrumento(
+  soloEmprendedorId?: string
+): Promise<RespuestaInstrumentoRowConEmprendedor[]> {
+  const rows = await prisma.instrumentoRespuesta.findMany({
+    where: soloEmprendedorId ? { emprendedorId: soloEmprendedorId } : undefined,
+    include: { registradoPor: { select: { nombre: true } } },
+    orderBy: { updatedAt: "desc" },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    instrumentoId: r.instrumentoId,
+    emprendedorId: r.emprendedorId,
+    datos: r.datos as Record<string, unknown>,
+    registradoPorNombre: r.registradoPor.nombre,
+    createdAt: r.createdAt.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }),
+    updatedAt: r.updatedAt.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }),
+  }));
 }

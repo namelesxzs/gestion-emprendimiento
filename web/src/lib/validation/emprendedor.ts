@@ -12,6 +12,10 @@ export const emprendedorCreateSchema = z.object({
   fechaIngreso: z.string().trim().min(1, "La fecha de ingreso es obligatoria"),
   correo: z.string().trim().toLowerCase().email("Correo inválido"),
   telefono: z.string().trim().min(1, "El teléfono es obligatorio"),
+  // Eje independiente de `etapa` (ver auditoría §07) — a qué fase del
+  // catálogo configurable pertenece. Opcional: no todo emprendedor tiene
+  // por qué tener fase asignada.
+  faseId: z.string().trim().optional(),
 });
 
 export type EmprendedorCreateInput = z.infer<typeof emprendedorCreateSchema>;

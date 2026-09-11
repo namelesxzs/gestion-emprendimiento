@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import type { Acompanamiento, Emprendedor, Etapa, EstadoEmprendedor, Reunion } from "@/lib/types";
+import type { Acompanamiento, Documento, Emprendedor, Etapa, EstadoEmprendedor, Reunion } from "@/lib/types";
+import type { FaseRow, InstrumentoRow, RespuestaInstrumentoRowConEmprendedor } from "@/lib/queries";
+import { InstrumentosCatalogo } from "./InstrumentosCatalogo";
 import { ETAPA_ORDER, getAcompanamientosByEmprendedor, getReunionesByEmprendedor } from "@/lib/view";
 import { EmprendedoresTable } from "./EmprendedoresTable";
 import { FilterChip } from "./FilterChip";
@@ -11,6 +13,7 @@ import { Card } from "./Card";
 import { NuevoEmprendedorForm } from "./NuevoEmprendedorForm";
 import { EditarEmprendedorForm } from "./EditarEmprendedorForm";
 import { AccesoPortalControl } from "./AccesoPortalControl";
+import { DocumentosEtapa } from "./DocumentosEtapa";
 import { ETAPA_COLOR_VAR } from "./etapa-colors";
 
 interface Row extends Emprendedor {
@@ -24,11 +27,19 @@ export function EmprendedoresExplorer({
   acompanamientos,
   reuniones,
   emprendedorIdsConPortal,
+  documentos,
+  fases,
+  instrumentos,
+  respuestasInstrumento,
 }: {
   rows: Row[];
   acompanamientos: Acompanamiento[];
   reuniones: Reunion[];
   emprendedorIdsConPortal: Set<string>;
+  documentos: Documento[];
+  fases: FaseRow[];
+  instrumentos: InstrumentoRow[];
+  respuestasInstrumento: RespuestaInstrumentoRowConEmprendedor[];
 }) {
   const [etapaFilter, setEtapaFilter] = useState<Set<Etapa>>(new Set(ETAPA_ORDER));
   const [estadoFilter, setEstadoFilter] = useState<Set<EstadoEmprendedor>>(
@@ -71,6 +82,12 @@ export function EmprendedoresExplorer({
     ? getAcompanamientosByEmprendedor(acompanamientos, selected.id)
     : [];
   const reunionesSeleccionado = selected ? getReunionesByEmprendedor(reuniones, selected.id) : [];
+  const documentosSeleccionado = selected
+    ? documentos.filter((d) => d.emprendedorId === selected.id)
+    : [];
+  const respuestasSeleccionado = selected
+    ? respuestasInstrumento.filter((r) => r.emprendedorId === selected.id)
+    : [];
   const ultimoAcompanamiento = acompanamientosSeleccionado[0];
 
   const exportarHref = `/api/exportar/emprendedores?etapas=${[...etapaFilter].join(",")}&estados=${[...estadoFilter].join(",")}`;
@@ -97,7 +114,7 @@ export function EmprendedoresExplorer({
         )}
       </div>
 
-      {showForm && puedeRegistrar && <NuevoEmprendedorForm onDone={() => setShowForm(false)} />}
+      {showForm && puedeRegistrar && <NuevoEmprendedorForm onDone={() => setShowForm(false)} fases={fases} />}
 
       <Card title="Filtros">
         <div className="flex flex-col gap-3">
@@ -146,7 +163,7 @@ export function EmprendedoresExplorer({
       </Card>
 
       {selected && showEditForm ? (
-        <EditarEmprendedorForm emprendedor={selected} onDone={() => setShowEditForm(false)} />
+        <EditarEmprendedorForm emprendedor={selected} onDone={() => setShowEditForm(false)} fases={fases} />
       ) : selected ? (
         <Card
           title={selected.nombre}
@@ -182,6 +199,10 @@ export function EmprendedoresExplorer({
               <div>
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>Etapa actual</p>
                 <div className="mt-1"><EtapaBadge etapa={selected.etapa} /></div>
+              </div>
+              <div>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Fase</p>
+                <p style={{ color: "var(--text-primary)" }}>{selected.faseNombre ?? "Sin asignar"}</p>
               </div>
               <div>
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>Acompañamientos</p>
@@ -238,6 +259,25 @@ export function EmprendedoresExplorer({
           </div>
         </Card>
       ) : null}
+
+      {selected && (
+        <DocumentosEtapa
+          emprendedorId={selected.id}
+          etapaActual={selected.etapa}
+          documentos={documentosSeleccionado}
+          puedeSubir={puedeRegistrar}
+          puedeRevisar={puedeRegistrar}
+        />
+      )}
+
+      {selected && (
+        <InstrumentosCatalogo
+          emprendedorId={selected.id}
+          instrumentos={instrumentos}
+          respuestas={respuestasSeleccionado}
+          puedeDiligenciar={puedeRegistrar}
+        />
+      )}
     </div>
   );
 }

@@ -3,7 +3,8 @@ import { EtapaBadge } from "./EtapaBadge";
 import { AvanceMeter } from "./AvanceMeter";
 import { StatTile } from "./StatTile";
 import { ProximasReuniones } from "./ProximasReuniones";
-import type { Acompanamiento, Emprendedor, Reunion } from "@/lib/types";
+import { DocumentosEtapa } from "./DocumentosEtapa";
+import type { Acompanamiento, Documento, Emprendedor, Reunion } from "@/lib/types";
 import { getProximasReuniones, getUltimoAvance } from "@/lib/view";
 
 // Vista de solo lectura para el rol EMPRENDEDOR: solo su propio progreso,
@@ -13,10 +14,12 @@ export function MiPerfilDashboard({
   emprendedor,
   acompanamientos,
   reuniones,
+  documentos,
 }: {
   emprendedor: Emprendedor;
   acompanamientos: Acompanamiento[];
   reuniones: Reunion[];
+  documentos: Documento[];
 }) {
   const avance = getUltimoAvance(acompanamientos, emprendedor.id) ?? 0;
   const proximasReuniones = getProximasReuniones(reuniones, [emprendedor]);
@@ -50,6 +53,14 @@ export function MiPerfilDashboard({
           </div>
         </div>
       </Card>
+
+      <DocumentosEtapa
+        emprendedorId={emprendedor.id}
+        etapaActual={emprendedor.etapa}
+        documentos={documentos}
+        puedeSubir
+        puedeRevisar={false}
+      />
 
       <Card title="Próximas reuniones" subtitle="Programadas o reagendadas">
         <ProximasReuniones reuniones={proximasReuniones} />

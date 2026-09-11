@@ -22,6 +22,10 @@ model Usuario {
   // KPIs institucionales por sede), no aplica a los demás roles.
   sede          String?
   activo        Boolean   @default(true)
+  // true cuando la contraseña actual es temporal (alta de portal, reset de
+  // Admin o solicitud de recuperación atendida) — el proxy fuerza pasar por
+  // /cambiar-password antes de cualquier otra ruta mientras esté en true.
+  debeCambiarPassword Boolean @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -34,6 +38,11 @@ model Usuario {
   reuniones           Reunion[]
   auditLogs           AuditLog[]
   importRuns          ImportRun[]
+  documentosSubidos   Documento[]      @relation("DocumentosSubidos")
+  documentosRevisados Documento[]      @relation("DocumentosRevisados")
+  solicitudesRestablecimiento SolicitudRestablecimiento[] @relation("SolicitudUsuario")
+  solicitudesAtendidas        SolicitudRestablecimiento[] @relation("SolicitudAtendidaPor")
+  respuestasInstrumentoRegistradas InstrumentoRespuesta[]
 
   @@index([rol])
   @@index([sede])
@@ -64,13 +73,147 @@ model Emprendedor {
   lastImportRunId String?
   lastImportRun   ImportRun? @relation("UltimaImportacion", fields: [lastImportRunId], references: [id])
 
+  // Eje independiente de `etapa` (ver auditoría del Manual FUMC, §07): a qué
+  // fase del catálogo configurable pertenece el emprendedor. No hay regla
+  // fija que ate una etapa a una fase — lo asigna el asesor/admin aparte.
+  faseId String?
+  fase   Fase?   @relation(fields: [faseId], references: [id])
+
   cuentaUsuario   Usuario?         @relation("CuentaEmprendedor")
   acompanamientos Acompanamiento[]
   reuniones       Reunion[]
   importaciones   ImportRun[]      @relation("EmprendedoresAfectados")
+  documentos      Documento[]
+  respuestasInstrumento InstrumentoRespuesta[]
 
   @@index([etapa])
   @@index([estado])
+  @@index([faseId])
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo configurable (Fase 11 del roadmap — ver auditoría vs. Manual
+// FUMC). Fase/Etapa/Instrumento no son datos de negocio fijos en código: el
+// Administrador los activa, desactiva y reordena desde /configuracion. Todo
+// el catálogo (incluyendo los 30 instrumentos del Manual) se siembra de una
+// vez — nada queda pendiente de "programar después".
+// ---------------------------------------------------------------------------
+
+// Fase de la Ruta de Emprendimiento (Pre-incubación / Incubación / Egreso).
+// Comentario de la profesora dentro del Manual, anclado a "Fase 1 —
+// Pre-incubación": "Fases que deben quedar en pestañas separadas del
+// aplicativo" — cada Fase activa se renderiza como una pestaña en /ruta.
+model Fase {
+  id          String   @id @default(cuid())
+  // Slug estable usado en código/seed — no cambia aunque se edite `nombre`.
+  clave       String   @unique
+  nombre      String
+  descripcion String?
+  orden       Int      @default(0)
+  activa      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  etapas        Etapa[]
+  instrumentos  Instrumento[]
+  emprendedores Emprendedor[]
+  reglasOrigen  ReglaAvance[] @relation("ReglaFaseOrigen")
+  reglasDestino ReglaAvance[] @relation("ReglaFaseDestino")
+
+  @@index([activa])
+}
+
+// Etapa de la cadena de valor (Descubrir…Financiar). Se migran las 5
+// actuales tal cual — mismo `clave` que ya vive como string en
+// Emprendedor.etapa — para no romper nada existente; el catálogo solo las
+// vuelve configurables (activar/desactivar/reordenar) desde ahora en
+// adelante. `faseId` es opcional: asociarla a una fase es una decisión del
+// Administrador, no una regla del sistema.
+model Etapa {
+  id        String   @id @default(cuid())
+  clave     String   @unique
+  nombre    String
+  color     String?
+  orden     Int      @default(0)
+  activa    Boolean  @default(true)
+  faseId    String?
+  fase      Fase?    @relation(fields: [faseId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([activa])
+  @@index([faseId])
+}
+
+// Uno de los 30 formatos/metodologías del Manual (tablas de las secciones 6
+// y 7). `camposSchema` describe sus campos (clave, etiqueta, tipo,
+// requerido, opciones) — el motor de formularios genérico (ver
+// InstrumentoForm) los dibuja sin necesitar una pantalla nueva por
+// instrumento.
+model Instrumento {
+  id                    String   @id @default(cuid())
+  clave                 String   @unique
+  nombre                String
+  proposito             String
+  // Referencia a la sección del Manual del que viene, ej. "6.3" — trazabilidad.
+  origenManual          String?
+  faseId                String?
+  fase                  Fase?    @relation(fields: [faseId], references: [id])
+  momento               String?
+  responsableDiligencia String?
+  responsableRevisa     String?
+  orden                 Int      @default(0)
+  activo                Boolean  @default(true)
+  camposSchema          Json
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  respuestas          InstrumentoRespuesta[]
+
+  @@index([activo])
+  @@index([faseId])
+}
+
+// Una instancia diligenciada de un Instrumento para un Emprendedor puntual.
+// `datos` guarda { claveCampo: valor } según el camposSchema del instrumento
+// en el momento de guardar — un instrumento editado después no reescribe
+// respuestas ya guardadas.
+model InstrumentoRespuesta {
+  id              String   @id @default(cuid())
+  instrumentoId   String
+  instrumento     Instrumento @relation(fields: [instrumentoId], references: [id])
+  emprendedorId   String
+  emprendedor     Emprendedor @relation(fields: [emprendedorId], references: [id])
+  datos           Json
+  registradoPorId String
+  registradoPor   Usuario  @relation(fields: [registradoPorId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([instrumentoId, emprendedorId])
+  @@index([emprendedorId])
+}
+
+// Regla de avance configurable — generaliza el "formato de tránsito de
+// fase" (6.13 del Manual): qué instrumentos deben tener una
+// InstrumentoRespuesta para habilitar el paso de una fase a otra. Sin
+// reglas activas para una transición, el paso queda libre (no hay gate por
+// defecto) — el Administrador es quien decide exigirlo.
+model ReglaAvance {
+  id                 String   @id @default(cuid())
+  nombre             String
+  faseOrigenId       String?
+  faseOrigen         Fase?    @relation("ReglaFaseOrigen", fields: [faseOrigenId], references: [id])
+  faseDestinoId      String
+  faseDestino        Fase     @relation("ReglaFaseDestino", fields: [faseDestinoId], references: [id])
+  // Claves de Instrumento (Instrumento.clave) requeridas para esta transición.
+  instrumentosClaves Json
+  activa             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([faseDestinoId])
+  @@index([activa])
 }
 
 model Acompanamiento {
@@ -163,6 +306,54 @@ model ImportRun {
   auditLogs              AuditLog[]
   emprendedoresAfectados Emprendedor[] @relation("EmprendedoresAfectados")
   emprendedoresUltimaImportacion Emprendedor[] @relation("UltimaImportacion")
+}
+
+// Evidencia documental que el Emprendedor (o el Docente/Admin en su
+// nombre) sube para sustentar el avance en una etapa. Solo un documento en
+// estado Aprobado para la etapa vigente habilita avanzar a la siguiente
+// (ver editarEmprendedor en src/app/emprendedores/actions.ts).
+model Documento {
+  id                 String    @id @default(cuid())
+  emprendedorId      String
+  emprendedor        Emprendedor @relation(fields: [emprendedorId], references: [id])
+  // Snapshot de la etapa del emprendedor en el momento de subir el
+  // documento — no cambia si el emprendedor avanza después.
+  etapa              String
+  nombreArchivo      String
+  storagePath        String
+  mimeType           String
+  tamanoBytes        Int
+  subidoPorId        String
+  subidoPor          Usuario   @relation("DocumentosSubidos", fields: [subidoPorId], references: [id])
+  estado             String    @default("Pendiente") // Pendiente | Aprobado | Rechazado
+  comentarioRevision String?
+  revisadoPorId      String?
+  revisadoPor        Usuario?  @relation("DocumentosRevisados", fields: [revisadoPorId], references: [id])
+  revisadoEn         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([emprendedorId, etapa])
+  @@index([estado])
+}
+
+// Pedido de "olvidé mi contraseña" hecho desde /recuperar-acceso (ruta
+// pública, sin sesión). Un Administrador la atiende desde /usuarios,
+// generando una nueva contraseña temporal — nunca se envía por correo.
+model SolicitudRestablecimiento {
+  id            String    @id @default(cuid())
+  usuarioId     String
+  usuario       Usuario   @relation("SolicitudUsuario", fields: [usuarioId], references: [id])
+  // Snapshot del correo usado al pedirlo, por si el correo de la cuenta
+  // cambia después.
+  correo        String
+  estado        String    @default("Pendiente") // Pendiente | Atendida
+  atendidaPorId String?
+  atendidaPor   Usuario?  @relation("SolicitudAtendidaPor", fields: [atendidaPorId], references: [id])
+  atendidaEn    DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([estado])
 }
 
 // Rate limiting de login (Fase 10) — un registro por intento, exitoso o

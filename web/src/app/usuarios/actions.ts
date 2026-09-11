@@ -221,7 +221,7 @@ export async function restablecerPasswordUsuario(
 
   try {
     const passwordHash = await bcrypt.hash(passwordTemporal, 10);
-    await prisma.usuario.update({ where: { id }, data: { passwordHash } });
+    await prisma.usuario.update({ where: { id }, data: { passwordHash, debeCambiarPassword: true } });
 
     // Nunca se guarda ni se audita la contraseña en claro — solo que hubo
     // un reset. passwordTemporal vive solo en memoria de esta request y en
@@ -282,6 +282,7 @@ export async function otorgarAccesoPortal(
         passwordHash,
         rol: "EMPRENDEDOR",
         emprendedorId: emprendedor.id,
+        debeCambiarPassword: true,
       },
     });
 
@@ -300,5 +301,59 @@ export async function otorgarAccesoPortal(
   }
 
   revalidatePath("/emprendedores");
+  return { passwordTemporal };
+}
+
+export type AtenderSolicitudState = { error?: string; passwordTemporal?: string };
+
+export async function atenderSolicitudRestablecimiento(
+  _prevState: AtenderSolicitudState,
+  formData: FormData
+): Promise<AtenderSolicitudState> {
+  let session;
+  try {
+    session = await requireRole("ADMINISTRADOR");
+  } catch (error) {
+    if (error instanceof AuthzError) return { error: error.message };
+    throw error;
+  }
+
+  const id = formData.get("id");
+  if (typeof id !== "string" || !id) return { error: "Solicitud inválida." };
+
+  const solicitud = await prisma.solicitudRestablecimiento.findUnique({ where: { id } });
+  if (!solicitud) return { error: "La solicitud ya no existe." };
+  if (solicitud.estado !== "Pendiente") return { error: "Esta solicitud ya fue atendida." };
+
+  const passwordTemporal = generarPasswordTemporal();
+
+  try {
+    const passwordHash = await bcrypt.hash(passwordTemporal, 10);
+    await prisma.$transaction([
+      prisma.usuario.update({
+        where: { id: solicitud.usuarioId },
+        data: { passwordHash, debeCambiarPassword: true },
+      }),
+      prisma.solicitudRestablecimiento.update({
+        where: { id },
+        data: { estado: "Atendida", atendidaPorId: session.user.id, atendidaEn: new Date() },
+      }),
+    ]);
+
+    await registrarAuditoria({
+      usuarioId: session.user.id,
+      rol: session.user.rol,
+      origen: "ADMINISTRACION",
+      entidad: "Usuario",
+      entidadId: solicitud.usuarioId,
+      accion: "UPDATE",
+      valorNuevo: { passwordReset: true, viaSolicitud: solicitud.id },
+    });
+  } catch (error) {
+    console.error("No se pudo atender la solicitud de restablecimiento", error);
+    return { error: "No se pudo atender la solicitud. Intenta de nuevo." };
+  }
+
+  revalidatePath("/usuarios");
   return { passwordTemporal };
 }

@@ -3,12 +3,13 @@
 import { useActionState, useEffect, useRef } from "react";
 import { registrarEmprendedor, type RegistrarEmprendedorState } from "@/app/emprendedores/actions";
 import { ETAPAS, ESTADOS_EMPRENDEDOR } from "@/lib/validation/emprendedor";
+import type { FaseRow } from "@/lib/queries";
 import { Card } from "./Card";
 import { FormField } from "./FormField";
 
 const initialState: RegistrarEmprendedorState = {};
 
-export function NuevoEmprendedorForm({ onDone }: { onDone: () => void }) {
+export function NuevoEmprendedorForm({ onDone, fases }: { onDone: () => void; fases: FaseRow[] }) {
   const [state, formAction, isPending] = useActionState(registrarEmprendedor, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -66,6 +67,25 @@ export function NuevoEmprendedorForm({ onDone }: { onDone: () => void }) {
         <FormField label="Fecha de ingreso" name="fechaIngreso" type="date" required />
         <FormField label="Correo" name="correo" type="email" required />
         <FormField label="Teléfono" name="telefono" required />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="faseId" className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+            Fase (opcional — eje independiente de la etapa)
+          </label>
+          <select
+            id="faseId"
+            name="faseId"
+            defaultValue=""
+            className="rounded-md border px-3 py-2 text-sm outline-none"
+            style={{ borderColor: "var(--border-hairline)", color: "var(--text-primary)" }}
+          >
+            <option value="">Sin asignar</option>
+            {fases.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {state.error && (
           <p className="sm:col-span-2 text-sm" style={{ color: "var(--status-critical)" }}>

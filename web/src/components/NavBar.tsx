@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/emprendedores", label: "Emprendedores" },
   { href: "/acompanamientos", label: "Acompañamientos" },
   { href: "/reuniones", label: "Reuniones" },
+  { href: "/ruta", label: "Ruta" },
 ];
 
 // El Emprendedor no tiene una vista de "todos los emprendedores" (RF13) —
@@ -17,6 +18,7 @@ const LINKS_EMPRENDEDOR = [
   { href: "/", label: "Mi progreso" },
   { href: "/acompanamientos", label: "Mi historial" },
   { href: "/reuniones", label: "Mis reuniones" },
+  { href: "/ruta", label: "Ruta" },
 ];
 
 const ROL_LABEL: Record<string, string> = {
@@ -127,6 +129,19 @@ export function NavBar() {
                   }`}
                 >
                   Auditoría
+                </Link>
+              )}
+
+              {puedeGestionarUsuarios && (
+                <Link
+                  href="/configuracion"
+                  className={`border-b-2 pb-1 text-sm font-bold tracking-wide uppercase transition-colors ${
+                    pathname === "/configuracion"
+                      ? "[color:var(--brand-primary)] [border-color:var(--brand-primary)]"
+                      : "border-transparent [color:var(--text-primary)] hover:[color:var(--brand-primary)] hover:[border-color:var(--brand-primary)]"
+                  }`}
+                >
+                  Configuración
                 </Link>
               )}
 

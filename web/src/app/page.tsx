@@ -10,6 +10,7 @@ import {
   getAllAcompanamientos,
   getAllCompromisos,
   getAllReuniones,
+  getDocumentosByEmprendedor,
   getEmprendedores,
   getEmprendedoresPorSede,
 } from "@/lib/queries";
@@ -22,10 +23,11 @@ export default async function Home() {
   // panel institucional completo — se pide solo su propio dato, no se
   // filtra después de traer todo.
   if (session?.user.rol === "EMPRENDEDOR" && session.user.emprendedorId) {
-    const [emprendedores, acompanamientos, reuniones] = await Promise.all([
+    const [emprendedores, acompanamientos, reuniones, documentos] = await Promise.all([
       getEmprendedores(session.user.emprendedorId),
       getAllAcompanamientos(session.user.emprendedorId),
       getAllReuniones(session.user.emprendedorId),
+      getDocumentosByEmprendedor(session.user.emprendedorId),
     ]);
     const emprendedor = emprendedores[0];
 
@@ -44,7 +46,12 @@ export default async function Home() {
         </header>
 
         {emprendedor ? (
-          <MiPerfilDashboard emprendedor={emprendedor} acompanamientos={acompanamientos} reuniones={reuniones} />
+          <MiPerfilDashboard
+            emprendedor={emprendedor}
+            acompanamientos={acompanamientos}
+            reuniones={reuniones}
+            documentos={documentos}
+          />
         ) : (
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             Tu cuenta no está vinculada a ningún registro de emprendedor todavía.

@@ -17,6 +17,14 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  // El límite por defecto de Server Actions (1MB) es menor que el tope de
+  // 10MB que aceptamos para documentos de soporte por etapa (ver
+  // src/lib/validation/documento.ts).
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
+  },
   async headers() {
     return [{ source: "/(.*)", headers: SECURITY_HEADERS }];
   },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import Link from "next/link";
 import { authenticate, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
@@ -48,6 +49,10 @@ export function LoginForm() {
           style={{ borderColor: "var(--border-hairline)", color: "var(--text-primary)" }}
         />
       </div>
+
+      <Link href="/recuperar-acceso" className="text-sm font-medium" style={{ color: "var(--brand-primary)" }}>
+        ¿Olvidaste tu contraseña?
+      </Link>
 
       {state.error && (
         <p className="text-sm" style={{ color: "var(--status-critical)" }}>

@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getUsuarios } from "@/lib/queries";
+import { getSolicitudesRestablecimiento, getUsuarios } from "@/lib/queries";
 import { UsuariosExplorer } from "@/components/UsuariosExplorer";
+import { SolicitudesRestablecimiento } from "@/components/SolicitudesRestablecimiento";
 
 export default async function UsuariosPage() {
   const session = await auth();
@@ -9,7 +10,7 @@ export default async function UsuariosPage() {
     redirect("/");
   }
 
-  const usuarios = await getUsuarios();
+  const [usuarios, solicitudes] = await Promise.all([getUsuarios(), getSolicitudesRestablecimiento()]);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
@@ -25,6 +26,8 @@ export default async function UsuariosPage() {
           se dan de alta desde su propio registro en Emprendedores.
         </p>
       </header>
+
+      <SolicitudesRestablecimiento solicitudes={solicitudes} />
 
       <UsuariosExplorer usuarios={usuarios} />
     </main>

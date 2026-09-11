@@ -1,6 +1,25 @@
 import "dotenv/config";
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/prisma";
+import { seedCatalogo } from "./seedCatalogo";
+
+// PDF mínimo (sin xref real, pero suficiente para que el enlace de
+// descarga de /api/documentos/[id]/archivo sirva un archivo válido).
+const PDF_DEMO = Buffer.from(
+  "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 150]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF",
+  "utf-8"
+);
+
+async function guardarDocumentoDemo(emprendedorId: string, nombreArchivo: string): Promise<string> {
+  const carpeta = path.join(process.cwd(), "storage", "documentos", emprendedorId);
+  await mkdir(carpeta, { recursive: true });
+  const rutaDestino = path.join(carpeta, `${randomUUID()}-${nombreArchivo}`);
+  await writeFile(rutaDestino, PDF_DEMO);
+  return rutaDestino;
+}
 
 const ETAPA_ORDER = ["Descubrir", "Incubar", "Formar", "Fomentar", "Financiar"] as const;
 type Etapa = (typeof ETAPA_ORDER)[number];
@@ -63,6 +82,11 @@ function hh(hora: number): string {
 const DEV_PASSWORD = "uie-dev-2026";
 
 async function main() {
+  // El catálogo (fases/etapas/instrumentos) es configuración, no dato de
+  // ejemplo: se siembra con upsert, aparte del resto que sí se borra y
+  // recrea abajo.
+  await seedCatalogo();
+
   const passwordHash = await bcrypt.hash(DEV_PASSWORD, 10);
 
   console.log("Limpiando datos existentes...");
@@ -70,6 +94,8 @@ async function main() {
   await prisma.compromiso.deleteMany();
   await prisma.acompanamiento.deleteMany();
   await prisma.reunion.deleteMany();
+  await prisma.documento.deleteMany();
+  await prisma.solicitudRestablecimiento.deleteMany();
   await prisma.importRun.deleteMany();
   await prisma.emprendedor.deleteMany();
   await prisma.usuario.deleteMany();
@@ -179,13 +205,65 @@ async function main() {
     // El primer emprendedor (Ana Gómez) recibe una cuenta de portal propia,
     // para poder probar el flujo de rol EMPRENDEDOR de extremo a extremo.
     if (index === 0) {
-      await prisma.usuario.create({
+      const cuentaPortal = await prisma.usuario.create({
         data: {
           nombre: e.nombre,
           correo: `portal.${e.correo}`,
           passwordHash,
           rol: "EMPRENDEDOR",
           emprendedorId: emprendedor.id,
+        },
+      });
+
+      // Documentos de soporte de ejemplo, en distintos estados, para
+      // demostrar el flujo de sustento documental por etapa.
+      const docenteA = docentesPorNombre.get("Docente A")!;
+
+      const rutaAprobado = await guardarDocumentoDemo(emprendedor.id, "plan-descubrimiento.pdf");
+      await prisma.documento.create({
+        data: {
+          emprendedorId: emprendedor.id,
+          etapa: emprendedor.etapa,
+          nombreArchivo: "plan-descubrimiento.pdf",
+          storagePath: rutaAprobado,
+          mimeType: "application/pdf",
+          tamanoBytes: PDF_DEMO.byteLength,
+          subidoPorId: cuentaPortal.id,
+          estado: "Aprobado",
+          comentarioRevision: "Buen sustento de las entrevistas realizadas.",
+          revisadoPorId: docenteA,
+          revisadoEn: addDays(e.fechaIngreso, 20),
+        },
+      });
+
+      const rutaRechazado = await guardarDocumentoDemo(emprendedor.id, "encuestas-clientes.pdf");
+      await prisma.documento.create({
+        data: {
+          emprendedorId: emprendedor.id,
+          etapa: emprendedor.etapa,
+          nombreArchivo: "encuestas-clientes.pdf",
+          storagePath: rutaRechazado,
+          mimeType: "application/pdf",
+          tamanoBytes: PDF_DEMO.byteLength,
+          subidoPorId: cuentaPortal.id,
+          estado: "Rechazado",
+          comentarioRevision: "Faltan las respuestas de al menos 10 clientes potenciales.",
+          revisadoPorId: docenteA,
+          revisadoEn: addDays(e.fechaIngreso, 12),
+        },
+      });
+
+      const rutaPendiente = await guardarDocumentoDemo(emprendedor.id, "propuesta-valor-v2.pdf");
+      await prisma.documento.create({
+        data: {
+          emprendedorId: emprendedor.id,
+          etapa: emprendedor.etapa,
+          nombreArchivo: "propuesta-valor-v2.pdf",
+          storagePath: rutaPendiente,
+          mimeType: "application/pdf",
+          tamanoBytes: PDF_DEMO.byteLength,
+          subidoPorId: cuentaPortal.id,
+          estado: "Pendiente",
         },
       });
     }

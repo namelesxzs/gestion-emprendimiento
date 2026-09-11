@@ -6,6 +6,8 @@ export type EstadoCompromiso = "Pendiente" | "En proceso" | "Cumplido";
 
 export type EstadoReunion = "Programada" | "Reagendada" | "Cancelada" | "Realizada";
 
+export type EstadoDocumento = "Pendiente" | "Aprobado" | "Rechazado";
+
 export interface Emprendedor {
   id: string;
   nombre: string;
@@ -17,6 +19,10 @@ export interface Emprendedor {
   responsable: string;
   correo: string;
   telefono: string;
+  /** Eje independiente de `etapa` — a qué fase del catálogo configurable
+   * pertenece (ver auditoría §07). Puede no tener fase asignada. */
+  faseId: string | null;
+  faseNombre: string | null;
 }
 
 /**
@@ -45,6 +51,21 @@ export interface Reunion {
   estado: EstadoReunion;
   accion: string;
   observaciones: string;
+}
+
+export interface Documento {
+  id: string;
+  emprendedorId: string;
+  etapa: Etapa;
+  nombreArchivo: string;
+  mimeType: string;
+  tamanoBytes: number;
+  subidoPor: string;
+  estado: EstadoDocumento;
+  comentarioRevision: string | null;
+  revisadoPor: string | null;
+  revisadoEn: string | null;
+  createdAt: string;
 }
 
 export interface Compromiso {
