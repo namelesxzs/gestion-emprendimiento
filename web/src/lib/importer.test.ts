@@ -45,7 +45,7 @@ describe("analizarExcel — archivo inválido", () => {
     const ExcelJS = (await import("exceljs")).default;
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Emprendedores");
-    ws.addRow(["Nombre", "Emprendimiento"]); // faltan casi todas las columnas
+    ws.addRow(["Nombre", "Emprendimiento"]);
     const buffer = Buffer.from(await wb.xlsx.writeBuffer());
 
     const r = await analizarExcel(buffer);

@@ -10,23 +10,28 @@ import {
   getAllAcompanamientos,
   getAllCompromisos,
   getAllReuniones,
+  getDocumentosByEmprendedor,
   getEmprendedores,
+  getEmprendedoresPorCohorte,
   getEmprendedoresPorSede,
+  getInstrumentos,
+  getRespuestasInstrumento,
 } from "@/lib/queries";
 import { getEtapaDistribution, getKpis, getProximasReuniones, getUltimoAvance } from "@/lib/view";
 
 export default async function Home() {
   const session = await auth();
 
-  // RF13: un Emprendedor solo consulta su propio progreso, nunca el
-  // panel institucional completo — se pide solo su propio dato, no se
-  // filtra después de traer todo.
   if (session?.user.rol === "EMPRENDEDOR" && session.user.emprendedorId) {
-    const [emprendedores, acompanamientos, reuniones] = await Promise.all([
-      getEmprendedores(session.user.emprendedorId),
-      getAllAcompanamientos(session.user.emprendedorId),
-      getAllReuniones(session.user.emprendedorId),
-    ]);
+    const [emprendedores, acompanamientos, reuniones, documentos, instrumentos, respuestasInstrumento] =
+      await Promise.all([
+        getEmprendedores(session.user.emprendedorId),
+        getAllAcompanamientos(session.user.emprendedorId),
+        getAllReuniones(session.user.emprendedorId),
+        getDocumentosByEmprendedor(session.user.emprendedorId),
+        getInstrumentos(true),
+        getRespuestasInstrumento(session.user.emprendedorId),
+      ]);
     const emprendedor = emprendedores[0];
 
     return (
@@ -44,7 +49,14 @@ export default async function Home() {
         </header>
 
         {emprendedor ? (
-          <MiPerfilDashboard emprendedor={emprendedor} acompanamientos={acompanamientos} reuniones={reuniones} />
+          <MiPerfilDashboard
+            emprendedor={emprendedor}
+            acompanamientos={acompanamientos}
+            reuniones={reuniones}
+            documentos={documentos}
+            instrumentos={instrumentos}
+            respuestasInstrumento={respuestasInstrumento}
+          />
         ) : (
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             Tu cuenta no está vinculada a ningún registro de emprendedor todavía.
@@ -54,17 +66,16 @@ export default async function Home() {
     );
   }
 
-  // Fase 6: Coordinador y Administrador supervisan la institución, no la
-  // operación día a día — reciben el panel de indicadores puro en vez del
-  // dashboard operativo (tabla de emprendedores + próximas reuniones).
   if (session?.user.rol === "COORDINADOR" || session?.user.rol === "ADMINISTRADOR") {
-    const [emprendedores, acompanamientos, reuniones, compromisos, emprendedoresPorSede] = await Promise.all([
-      getEmprendedores(),
-      getAllAcompanamientos(),
-      getAllReuniones(),
-      getAllCompromisos(),
-      getEmprendedoresPorSede(),
-    ]);
+    const [emprendedores, acompanamientos, reuniones, compromisos, emprendedoresPorSede, emprendedoresPorCohorte] =
+      await Promise.all([
+        getEmprendedores(),
+        getAllAcompanamientos(),
+        getAllReuniones(),
+        getAllCompromisos(),
+        getEmprendedoresPorSede(),
+        getEmprendedoresPorCohorte(),
+      ]);
 
     return (
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
@@ -96,6 +107,7 @@ export default async function Home() {
           reuniones={reuniones}
           compromisos={compromisos}
           emprendedoresPorSede={emprendedoresPorSede}
+          emprendedoresPorCohorte={emprendedoresPorCohorte}
         />
       </main>
     );

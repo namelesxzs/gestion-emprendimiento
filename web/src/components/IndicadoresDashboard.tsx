@@ -4,7 +4,7 @@ import { EtapaBarChart } from "./EtapaBarChart";
 import { BarList } from "./BarList";
 import { TrendBarChart } from "./TrendBarChart";
 import type { Acompanamiento, Compromiso, Emprendedor, Reunion } from "@/lib/types";
-import type { EmprendedoresPorSede } from "@/lib/queries";
+import type { EmprendedoresPorCohorte, EmprendedoresPorSede } from "@/lib/queries";
 import {
   getDistribucionSector,
   getEfectividadReuniones,
@@ -19,12 +19,14 @@ export function IndicadoresDashboard({
   reuniones,
   compromisos,
   emprendedoresPorSede,
+  emprendedoresPorCohorte,
 }: {
   emprendedores: Emprendedor[];
   acompanamientos: Acompanamiento[];
   reuniones: Reunion[];
   compromisos: Compromiso[];
   emprendedoresPorSede: EmprendedoresPorSede[];
+  emprendedoresPorCohorte: EmprendedoresPorCohorte[];
 }) {
   const kpis = getKpis(emprendedores, acompanamientos);
   const distribucionEtapa = getEtapaDistribution(emprendedores);
@@ -40,6 +42,12 @@ export function IndicadoresDashboard({
   }));
 
   const reunionBarData = efectividad.porEstado.map((e) => ({ label: e.estado, count: e.count }));
+
+  const cohorteBarData = emprendedoresPorCohorte.map((c) => ({
+    label: c.cohorte,
+    count: c.total,
+    sublabel: `${c.activos} activos`,
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -77,6 +85,10 @@ export function IndicadoresDashboard({
           <TrendBarChart data={ingresosPorMes} color="var(--etapa-descubrir)" />
         </Card>
       </div>
+
+      <Card title="Emprendedores por cohorte" subtitle="Manual §5.2/5.5 — reportería a Vicerrectoría y convocatorias externas">
+        <BarList data={cohorteBarData} color="var(--etapa-incubar)" />
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card

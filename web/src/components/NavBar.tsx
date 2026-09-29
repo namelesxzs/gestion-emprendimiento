@@ -9,14 +9,14 @@ const LINKS = [
   { href: "/emprendedores", label: "Emprendedores" },
   { href: "/acompanamientos", label: "Acompañamientos" },
   { href: "/reuniones", label: "Reuniones" },
+  { href: "/ruta", label: "Ruta" },
 ];
 
-// El Emprendedor no tiene una vista de "todos los emprendedores" (RF13) —
-// esa página redirige al Dashboard, así que ni se le muestra el enlace.
 const LINKS_EMPRENDEDOR = [
   { href: "/", label: "Mi progreso" },
   { href: "/acompanamientos", label: "Mi historial" },
   { href: "/reuniones", label: "Mis reuniones" },
+  { href: "/ruta", label: "Ruta" },
 ];
 
 const ROL_LABEL: Record<string, string> = {
@@ -35,8 +35,7 @@ export function NavBar() {
   const links = session?.user.rol === "EMPRENDEDOR" ? LINKS_EMPRENDEDOR : LINKS;
 
   return (
-    <nav>
-      {/* Franja superior institucional */}
+    <nav className="no-print">
       <div style={{ backgroundColor: "var(--brand-header)" }}>
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-1.5">
           <span className="text-xs tracking-wide" style={{ color: "#aaaaaa" }}>
@@ -48,7 +47,6 @@ export function NavBar() {
         </div>
       </div>
 
-      {/* Barra principal */}
       <div
         style={{
           backgroundColor: "var(--surface-1)",
@@ -69,9 +67,6 @@ export function NavBar() {
             UIE <span style={{ color: "var(--brand-primary)" }}>· María Cano</span>
           </span>
 
-          {/* En /login no hay sesión ni nada que navegar todavía: no mostrar
-              enlaces ni datos de usuario, para que la barra sea coherente
-              con el estado real (no autenticado). */}
           {!isLoginPage && (
             <div className="flex items-center gap-6">
               {links.map((link) => {
@@ -127,6 +122,19 @@ export function NavBar() {
                   }`}
                 >
                   Auditoría
+                </Link>
+              )}
+
+              {puedeGestionarUsuarios && (
+                <Link
+                  href="/configuracion"
+                  className={`border-b-2 pb-1 text-sm font-bold tracking-wide uppercase transition-colors ${
+                    pathname === "/configuracion"
+                      ? "[color:var(--brand-primary)] [border-color:var(--brand-primary)]"
+                      : "border-transparent [color:var(--text-primary)] hover:[color:var(--brand-primary)] hover:[border-color:var(--brand-primary)]"
+                  }`}
+                >
+                  Configuración
                 </Link>
               )}
 

@@ -8,8 +8,14 @@ const mockAuth = vi.fn();
 vi.mock("@/auth", () => ({ auth: () => mockAuth() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-const { registrarUsuario, editarUsuario, toggleActivoUsuario, restablecerPasswordUsuario, otorgarAccesoPortal } =
-  await import("./actions");
+const {
+  registrarUsuario,
+  editarUsuario,
+  toggleActivoUsuario,
+  restablecerPasswordUsuario,
+  otorgarAccesoPortal,
+  atenderSolicitudRestablecimiento,
+} = await import("./actions");
 
 async function crearAdminDeTest() {
   return prisma.usuario.create({
@@ -83,7 +89,7 @@ describe("registrarUsuario", () => {
     const r = await registrarUsuario({}, fd({ nombre: "N", correo: "n2@test.com", password: "12345678", rol: "DOCENTE" }));
 
     expect(r.error).toBeDefined();
-    expect(await prisma.usuario.count()).toBe(1); // solo el admin de test
+    expect(await prisma.usuario.count()).toBe(1);
   });
 
   it("rechaza un correo ya registrado", async () => {
@@ -116,7 +122,7 @@ describe("editarUsuario", () => {
     const actualizado = await prisma.usuario.findUnique({ where: { id: docente.id } });
     expect(actualizado?.nombre).toBe("Editado");
     expect(actualizado?.rol).toBe("COORDINADOR");
-    expect(actualizado?.sede).toBeNull(); // ya no es Docente
+    expect(actualizado?.sede).toBeNull();
 
     const log = await prisma.auditLog.findFirst({ where: { entidad: "Usuario", entidadId: docente.id, accion: "UPDATE" } });
     expect(log?.valorAnterior).toMatchObject({ nombre: "Original", rol: "DOCENTE" });
@@ -194,6 +200,7 @@ describe("restablecerPasswordUsuario", () => {
     expect(r.passwordTemporal).toBeDefined();
     const actualizado = await prisma.usuario.findUnique({ where: { id: docente.id } });
     expect(await bcrypt.compare(r.passwordTemporal!, actualizado!.passwordHash)).toBe(true);
+    expect(actualizado?.debeCambiarPassword).toBe(true);
 
     const log = await prisma.auditLog.findFirst({ where: { entidad: "Usuario", entidadId: docente.id, accion: "UPDATE" } });
     expect(JSON.stringify(log?.valorNuevo)).not.toContain(r.passwordTemporal);
@@ -218,6 +225,7 @@ describe("otorgarAccesoPortal", () => {
     const cuenta = await prisma.usuario.findUnique({ where: { emprendedorId: emprendedor.id } });
     expect(cuenta?.rol).toBe("EMPRENDEDOR");
     expect(cuenta?.correo).toBe("ana.portal@test.com");
+    expect(cuenta?.debeCambiarPassword).toBe(true);
   });
 
   it("rechaza si el emprendedor ya tiene cuenta de portal", async () => {
@@ -246,5 +254,61 @@ describe("otorgarAccesoPortal", () => {
     const r = await otorgarAccesoPortal({}, fd({ emprendedorId: "no-existe" }));
 
     expect(r.error).toMatch(/ya no existe/);
+  });
+});
+
+describe("atenderSolicitudRestablecimiento", () => {
+  it("genera una contraseña temporal, fuerza cambiarla y marca la solicitud como Atendida", async () => {
+    const admin = await crearAdminDeTest();
+    mockAuth.mockResolvedValue(sesionAdmin(admin));
+    const docente = await prisma.usuario.create({
+      data: { nombre: "D", correo: "d3@test.com", passwordHash: "hash-viejo", rol: "DOCENTE", sede: SEDES[0] },
+    });
+    const solicitud = await prisma.solicitudRestablecimiento.create({
+      data: { usuarioId: docente.id, correo: docente.correo },
+    });
+
+    const r = await atenderSolicitudRestablecimiento({}, fd({ id: solicitud.id }));
+
+    expect(r.passwordTemporal).toBeDefined();
+    const cuenta = await prisma.usuario.findUnique({ where: { id: docente.id } });
+    expect(await bcrypt.compare(r.passwordTemporal!, cuenta!.passwordHash)).toBe(true);
+    expect(cuenta?.debeCambiarPassword).toBe(true);
+
+    const actualizada = await prisma.solicitudRestablecimiento.findUnique({ where: { id: solicitud.id } });
+    expect(actualizada?.estado).toBe("Atendida");
+    expect(actualizada?.atendidaPorId).toBe(admin.id);
+  });
+
+  it("rechaza si quien atiende no es Administrador", async () => {
+    const docente = await prisma.usuario.create({
+      data: { nombre: "D", correo: "d4@test.com", passwordHash: "x", rol: "DOCENTE", sede: SEDES[0] },
+    });
+    mockAuth.mockResolvedValue({ user: { id: docente.id, rol: "DOCENTE" as const, emprendedorId: null, name: docente.nombre } });
+    const solicitud = await prisma.solicitudRestablecimiento.create({
+      data: { usuarioId: docente.id, correo: docente.correo },
+    });
+
+    const r = await atenderSolicitudRestablecimiento({}, fd({ id: solicitud.id }));
+
+    expect(r.error).toMatch(/No autorizado/);
+    const sinCambios = await prisma.solicitudRestablecimiento.findUnique({ where: { id: solicitud.id } });
+    expect(sinCambios?.estado).toBe("Pendiente");
+  });
+
+  it("rechaza atender la misma solicitud dos veces", async () => {
+    const admin = await crearAdminDeTest();
+    mockAuth.mockResolvedValue(sesionAdmin(admin));
+    const docente = await prisma.usuario.create({
+      data: { nombre: "D", correo: "d5@test.com", passwordHash: "x", rol: "DOCENTE", sede: SEDES[0] },
+    });
+    const solicitud = await prisma.solicitudRestablecimiento.create({
+      data: { usuarioId: docente.id, correo: docente.correo },
+    });
+
+    await atenderSolicitudRestablecimiento({}, fd({ id: solicitud.id }));
+    const r = await atenderSolicitudRestablecimiento({}, fd({ id: solicitud.id }));
+
+    expect(r.error).toMatch(/ya fue atendida/);
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import Link from "next/link";
 import { authenticate, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
@@ -10,9 +11,6 @@ export function LoginForm() {
 
   useEffect(() => {
     if (state.success) {
-      // Navegación dura a propósito: fuerza que el layout raíz se vuelva a
-      // ejecutar en servidor y lea la sesión ya autenticada, en vez de una
-      // transición de cliente que reutilizaría el layout previo (sin sesión).
       window.location.href = "/";
     }
   }, [state]);
@@ -48,6 +46,10 @@ export function LoginForm() {
           style={{ borderColor: "var(--border-hairline)", color: "var(--text-primary)" }}
         />
       </div>
+
+      <Link href="/recuperar-acceso" className="text-sm font-medium" style={{ color: "var(--brand-primary)" }}>
+        ¿Olvidaste tu contraseña?
+      </Link>
 
       {state.error && (
         <p className="text-sm" style={{ color: "var(--status-critical)" }}>

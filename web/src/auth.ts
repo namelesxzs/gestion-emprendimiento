@@ -20,8 +20,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const usuario = await prisma.usuario.findUnique({ where: { correo } });
         if (!usuario || !usuario.activo) {
-          // Se registra igual con correo inexistente/inactivo — si no, un
-          // ataque de enumeración quedaría fuera del límite de intentos.
           await registrarIntentoLogin(correo, false);
           return null;
         }
@@ -36,6 +34,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: usuario.correo,
           rol: usuario.rol as "ADMINISTRADOR" | "DOCENTE" | "COORDINADOR" | "EMPRENDEDOR",
           emprendedorId: usuario.emprendedorId,
+          debeCambiarPassword: usuario.debeCambiarPassword,
         };
       },
     }),
@@ -46,6 +45,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id as string;
         token.rol = user.rol;
         token.emprendedorId = user.emprendedorId;
+        token.debeCambiarPassword = user.debeCambiarPassword;
       }
       return token;
     },
@@ -53,6 +53,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.id = token.id as string;
       session.user.rol = token.rol as Session["user"]["rol"];
       session.user.emprendedorId = token.emprendedorId as string | null;
+      session.user.debeCambiarPassword = token.debeCambiarPassword as boolean;
       return session;
     },
   },

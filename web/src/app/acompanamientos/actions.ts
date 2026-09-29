@@ -14,7 +14,6 @@ export async function registrarAcompanamiento(
 ): Promise<RegistrarAcompanamientoState> {
   let session;
   try {
-    // RF03-06: solo Administrador y Docente registran acompañamientos.
     session = await requireRole("ADMINISTRADOR", "DOCENTE");
   } catch (error) {
     if (error instanceof AuthzError) return { error: error.message };
@@ -60,8 +59,6 @@ export async function registrarAcompanamiento(
       },
     });
 
-    // Si el acompañamiento avanza la etapa del emprendedor, se refleja
-    // también en su ficha (RF07 — actualizar etapa de la cadena de valor).
     if (parsed.data.etapa !== emprendedor.etapa) {
       await prisma.emprendedor.update({
         where: { id: emprendedor.id },

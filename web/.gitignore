@@ -50,3 +50,6 @@ next-env.d.ts
 # sqlite de test (vitest.globalSetup.mts la crea y la borra sola)
 /test.db
 /test.db-journal
+
+# archivos subidos por usuarios (documentos de soporte por etapa)
+/storage/

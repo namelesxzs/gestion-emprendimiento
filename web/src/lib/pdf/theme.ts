@@ -1,6 +1,3 @@
-// Paleta institucional replicada en valores literales — react-pdf no lee
-// variables CSS (globals.css), así que estos deben mantenerse en sync a mano
-// con :root en src/app/globals.css si la identidad visual cambia.
 export const PDF_COLORS = {
   ink: "#003366",
   primary: "#0689bb",

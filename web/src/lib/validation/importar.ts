@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { ETAPAS, ESTADOS_EMPRENDEDOR } from "./emprendedor";
 
-// Columnas de la hoja "Emprendedores" de la plantilla oficial
-// (Plantilla_Proyecto_UIE_Cadena_Valor.xlsx). El importador solo toca
-// campos maestros/administrativos — nunca historial (acompañamientos,
-// compromisos, reuniones).
 export const COLUMNAS_REQUERIDAS = [
   "Nombre",
   "Emprendimiento",

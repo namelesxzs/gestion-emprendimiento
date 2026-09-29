@@ -12,6 +12,9 @@ const ENCABEZADOS = [
   "Teléfono",
   "Fecha de ingreso",
   "Último avance (%)",
+  "Fase",
+  "Cohorte",
+  "Sede",
 ];
 
 interface FilaEmprendedor extends Emprendedor {
@@ -49,6 +52,9 @@ export async function generarExcelEmprendedores(rows: FilaEmprendedor[]): Promis
       e.telefono,
       e.fechaIngreso,
       e.avance ?? "",
+      e.faseNombre ?? "",
+      e.cohorteNombre ?? "",
+      e.sede ?? "",
     ]);
   }
 

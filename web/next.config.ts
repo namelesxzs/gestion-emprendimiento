@@ -1,10 +1,6 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 
-// Cabeceras de seguridad básicas (Fase 10). No incluye Content-Security-Policy
-// a propósito: definir una CSP correcta para las páginas + hidratación de
-// Next requiere probar cada ruta con cuidado, y no se alcanzó a hacer esa
-// verificación en esta fase — ver docs/SEGURIDAD.md.
 const SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -16,6 +12,11 @@ const SECURITY_HEADERS = [
 const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
+  },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
   },
   async headers() {
     return [{ source: "/(.*)", headers: SECURITY_HEADERS }];

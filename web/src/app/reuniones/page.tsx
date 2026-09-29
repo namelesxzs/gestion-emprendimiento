@@ -4,7 +4,6 @@ import { getAllReuniones, getEmprendedores } from "@/lib/queries";
 
 export default async function ReunionesPage() {
   const session = await auth();
-  // RF13: un Emprendedor solo ve sus propias reuniones.
   const soloPropio = session?.user.rol === "EMPRENDEDOR" ? session.user.emprendedorId ?? undefined : undefined;
 
   const [emprendedores, reuniones] = await Promise.all([

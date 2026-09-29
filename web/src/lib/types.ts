@@ -6,6 +6,8 @@ export type EstadoCompromiso = "Pendiente" | "En proceso" | "Cumplido";
 
 export type EstadoReunion = "Programada" | "Reagendada" | "Cancelada" | "Realizada";
 
+export type EstadoDocumento = "Pendiente" | "Aprobado" | "Rechazado";
+
 export interface Emprendedor {
   id: string;
   nombre: string;
@@ -17,14 +19,41 @@ export interface Emprendedor {
   responsable: string;
   correo: string;
   telefono: string;
+  faseId: string | null;
+  faseNombre: string | null;
+  sede: string | null;
+  programaAcademico: string | null;
+  facultad: string | null;
+  tipoInnovacion: string | null;
+  madurez: string | null;
+  problema: string | null;
+  descripcionIdea: string | null;
+  canalPostulacion: string | null;
+  cohorteId: string | null;
+  cohorteNombre: string | null;
 }
 
-/**
- * Vista aplanada de un Acompanamiento para las pantallas actuales. En la
- * base de datos los compromisos viven en su propia tabla (uno o varios por
- * acompañamiento, ver prisma/schema.prisma); `compromisos`/`estado` aquí
- * resumen esa relación para no tocar los componentes de UI existentes.
- */
+export interface IntegranteEquipo {
+  id: string;
+  emprendedorId: string;
+  nombre: string;
+  documento: string | null;
+  programaAcademico: string | null;
+  semestre: string | null;
+  correo: string | null;
+  telefono: string | null;
+  rolEquipo: string | null;
+}
+
+export interface Cohorte {
+  id: string;
+  nombre: string;
+  sede: string | null;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+  activa: boolean;
+}
+
 export interface Acompanamiento {
   id: string;
   emprendedorId: string;
@@ -47,6 +76,21 @@ export interface Reunion {
   observaciones: string;
 }
 
+export interface Documento {
+  id: string;
+  emprendedorId: string;
+  etapa: Etapa;
+  nombreArchivo: string;
+  mimeType: string;
+  tamanoBytes: number;
+  subidoPor: string;
+  estado: EstadoDocumento;
+  comentarioRevision: string | null;
+  revisadoPor: string | null;
+  revisadoEn: string | null;
+  createdAt: string;
+}
+
 export interface Compromiso {
   id: string;
   acompanamientoId: string;
@@ -56,9 +100,6 @@ export interface Compromiso {
   estado: EstadoCompromiso;
 }
 
-/** Usuario de personal UIE (Administrador/Docente/Coordinador) tal como se
- * lista y gestiona en /usuarios. Las cuentas EMPRENDEDOR no pasan por este
- * tipo — viven atadas a un registro de Emprendedor, ver otorgarAccesoPortal. */
 export interface UsuarioGestionable {
   id: string;
   nombre: string;

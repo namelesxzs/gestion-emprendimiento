@@ -1,8 +1,3 @@
-// Prisma schema — Plataforma UIE
-// SQLite no soporta enums nativos ni listas escalares: los campos de tipo
-// "enum" (etapa, estado, rol, etc.) se modelan como String, validados con
-// Zod en la capa de aplicación (ver src/lib/validation).
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -13,68 +8,219 @@ datasource db {
 }
 
 model Usuario {
-  id            String    @id @default(cuid())
-  nombre        String
-  correo        String    @unique
-  passwordHash  String
-  rol           String // ADMINISTRADOR | DOCENTE | COORDINADOR | EMPRENDEDOR
-  // Sede física a la que pertenece — obligatoria para DOCENTE (alimenta los
-  // KPIs institucionales por sede), no aplica a los demás roles.
-  sede          String?
-  activo        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                  String   @id @default(cuid())
+  nombre              String
+  correo              String   @unique
+  passwordHash        String
+  rol                 String
+  sede                String?
+  activo              Boolean  @default(true)
+  debeCambiarPassword Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  // Solo si rol = EMPRENDEDOR: vincula la cuenta a su propio registro.
   emprendedorId String?      @unique
   emprendedor   Emprendedor? @relation("CuentaEmprendedor", fields: [emprendedorId], references: [id])
 
-  emprendedoresACargo Emprendedor[]    @relation("Responsable")
-  acompanamientos     Acompanamiento[]
-  reuniones           Reunion[]
-  auditLogs           AuditLog[]
-  importRuns          ImportRun[]
+  emprendedoresACargo              Emprendedor[]               @relation("Responsable")
+  acompanamientos                  Acompanamiento[]
+  reuniones                        Reunion[]
+  auditLogs                        AuditLog[]
+  importRuns                       ImportRun[]
+  documentosSubidos                Documento[]                 @relation("DocumentosSubidos")
+  documentosRevisados              Documento[]                 @relation("DocumentosRevisados")
+  solicitudesRestablecimiento      SolicitudRestablecimiento[] @relation("SolicitudUsuario")
+  solicitudesAtendidas             SolicitudRestablecimiento[] @relation("SolicitudAtendidaPor")
+  respuestasInstrumentoRegistradas InstrumentoRespuesta[]      @relation("RespuestaRegistradaPor")
+  respuestasInstrumentoRevisadas   InstrumentoRespuesta[]      @relation("RespuestaRevisadaPor")
 
   @@index([rol])
   @@index([sede])
 }
 
 model Emprendedor {
-  id                   String    @id @default(cuid())
-  // Business Key futura (aún no existe en el Excel oficial) — nullable hasta
-  // que la institución la provea.
-  codigoInstitucional  String?   @unique
-  // Matching Key interina del importador — el campo más estable disponible hoy.
-  correo               String    @unique
-  nombre               String
-  emprendimiento       String
-  sector               String
-  telefono             String
-  etapa                String // Descubrir | Incubar | Formar | Fomentar | Financiar
-  estado               String    @default("Activo") // Activo | Graduado | Inactivo
-  fechaIngreso         DateTime
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  // Soft delete — nunca DELETE físico sobre un registro con historial.
-  deletedAt            DateTime?
+  id                  String    @id @default(cuid())
+  codigoInstitucional String?   @unique
+  correo              String    @unique
+  nombre              String
+  emprendimiento      String
+  sector              String
+  telefono            String
+  etapa               String
+  estado              String    @default("Activo")
+  fechaIngreso        DateTime
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
 
-  responsableId   String?
-  responsable     Usuario?   @relation("Responsable", fields: [responsableId], references: [id])
+  responsableId String?
+  responsable   Usuario? @relation("Responsable", fields: [responsableId], references: [id])
 
   lastImportRunId String?
   lastImportRun   ImportRun? @relation("UltimaImportacion", fields: [lastImportRunId], references: [id])
 
-  cuentaUsuario   Usuario?         @relation("CuentaEmprendedor")
-  acompanamientos Acompanamiento[]
-  reuniones       Reunion[]
-  importaciones   ImportRun[]      @relation("EmprendedoresAfectados")
+  faseId String?
+  fase   Fase?   @relation(fields: [faseId], references: [id])
+
+  sede              String?
+  programaAcademico String?
+  facultad          String?
+  tipoInnovacion    String?
+  madurez           String?
+  problema          String?
+  descripcionIdea   String?
+  canalPostulacion  String?
+
+  cohorteId String?
+  cohorte   Cohorte? @relation(fields: [cohorteId], references: [id])
+
+  cuentaUsuario         Usuario?               @relation("CuentaEmprendedor")
+  acompanamientos       Acompanamiento[]
+  reuniones             Reunion[]
+  importaciones         ImportRun[]            @relation("EmprendedoresAfectados")
+  documentos            Documento[]
+  respuestasInstrumento InstrumentoRespuesta[]
+  integrantesEquipo     IntegranteEquipo[]
 
   @@index([etapa])
+  @@index([cohorteId])
   @@index([estado])
+  @@index([faseId])
+}
+
+model Fase {
+  id          String   @id @default(cuid())
+  clave       String   @unique
+  nombre      String
+  descripcion String?
+  orden       Int      @default(0)
+  activa      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  etapas        Etapa[]
+  instrumentos  Instrumento[]
+  emprendedores Emprendedor[]
+  reglasOrigen  ReglaAvance[] @relation("ReglaFaseOrigen")
+  reglasDestino ReglaAvance[] @relation("ReglaFaseDestino")
+
+  @@index([activa])
+}
+
+model Etapa {
+  id        String   @id @default(cuid())
+  clave     String   @unique
+  nombre    String
+  color     String?
+  orden     Int      @default(0)
+  activa    Boolean  @default(true)
+  faseId    String?
+  fase      Fase?    @relation(fields: [faseId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([activa])
+  @@index([faseId])
+}
+
+model Instrumento {
+  id                    String   @id @default(cuid())
+  clave                 String   @unique
+  nombre                String
+  proposito             String
+  origenManual          String?
+  faseId                String?
+  fase                  Fase?    @relation(fields: [faseId], references: [id])
+  momento               String?
+  responsableDiligencia String?
+  responsableRevisa     String?
+  orden                 Int      @default(0)
+  activo                Boolean  @default(true)
+  camposSchema          Json
+  plazoRevisionDias     Int?
+  permiteMultiples      Boolean  @default(false)
+  transversal           Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  respuestas InstrumentoRespuesta[]
+
+  @@index([activo])
+  @@index([faseId])
+}
+
+model InstrumentoRespuesta {
+  id                 String      @id @default(cuid())
+  instrumentoId      String
+  instrumento        Instrumento @relation(fields: [instrumentoId], references: [id])
+  emprendedorId      String
+  emprendedor        Emprendedor @relation(fields: [emprendedorId], references: [id])
+  datos              Json
+  registradoPorId    String
+  registradoPor      Usuario     @relation("RespuestaRegistradaPor", fields: [registradoPorId], references: [id])
+  estadoRevision     String      @default("Pendiente")
+  revisadoPorId      String?
+  revisadoPor        Usuario?    @relation("RespuestaRevisadaPor", fields: [revisadoPorId], references: [id])
+  revisadoEn         DateTime?
+  comentarioRevision String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([instrumentoId, emprendedorId])
+  @@index([emprendedorId])
+  @@index([estadoRevision])
+}
+
+model ReglaAvance {
+  id                 String   @id @default(cuid())
+  nombre             String
+  faseOrigenId       String?
+  faseOrigen         Fase?    @relation("ReglaFaseOrigen", fields: [faseOrigenId], references: [id])
+  faseDestinoId      String
+  faseDestino        Fase     @relation("ReglaFaseDestino", fields: [faseDestinoId], references: [id])
+  instrumentosClaves Json
+  activa             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([faseDestinoId])
+  @@index([activa])
+}
+
+model Cohorte {
+  id          String    @id @default(cuid())
+  nombre      String
+  sede        String?
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+  activa      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  emprendedores Emprendedor[]
+
+  @@index([activa])
+}
+
+model IntegranteEquipo {
+  id                String      @id @default(cuid())
+  emprendedorId     String
+  emprendedor       Emprendedor @relation(fields: [emprendedorId], references: [id])
+  nombre            String
+  documento         String?
+  programaAcademico String?
+  semestre          String?
+  correo            String?
+  telefono          String?
+  rolEquipo         String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([emprendedorId])
 }
 
 model Acompanamiento {
-  id              String   @id @default(cuid())
+  id              String      @id @default(cuid())
   emprendedorId   String
   emprendedor     Emprendedor @relation(fields: [emprendedorId], references: [id])
   docenteId       String?
@@ -83,63 +229,61 @@ model Acompanamiento {
   etapa           String
   diagnostico     String
   recomendaciones String
-  avancePct       Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  avancePct       Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   compromisos Compromiso[]
 
   @@index([emprendedorId, fecha])
 }
 
-// Normalizado como tabla propia (separado de Acompanamiento) para soportar
-// KPI de cumplimiento real — ver §9/§18 de la auditoría.
 model Compromiso {
-  id                String    @id @default(cuid())
+  id                String         @id @default(cuid())
   acompanamientoId  String
   acompanamiento    Acompanamiento @relation(fields: [acompanamientoId], references: [id])
   descripcion       String
   fechaCompromiso   DateTime
   fechaCumplimiento DateTime?
-  estado            String    @default("Pendiente") // Pendiente | En proceso | Cumplido
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  estado            String         @default("Pendiente")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@index([estado])
 }
 
 model Reunion {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   emprendedorId String
   emprendedor   Emprendedor @relation(fields: [emprendedorId], references: [id])
   docenteId     String?
   docente       Usuario?    @relation(fields: [docenteId], references: [id])
   fecha         DateTime
   hora          String
-  estado        String   @default("Programada") // Programada | Reagendada | Cancelada | Realizada
+  estado        String      @default("Programada")
   accion        String
   observaciones String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@index([emprendedorId, fecha])
 }
 
 model AuditLog {
-  id            String    @id @default(cuid())
+  id            String     @id @default(cuid())
   usuarioId     String?
-  usuario       Usuario?  @relation(fields: [usuarioId], references: [id])
+  usuario       Usuario?   @relation(fields: [usuarioId], references: [id])
   rolSnapshot   String?
   entidad       String
   entidadId     String
-  accion        String // CREATE | UPDATE | DELETE | LOGIN
-  origen        String // MANUAL | IMPORTACION_EXCEL | SISTEMA | ADMINISTRACION
+  accion        String
+  origen        String
   valorAnterior Json?
   valorNuevo    Json?
-  resultado     String    @default("EXITO") // EXITO | ERROR
+  resultado     String     @default("EXITO")
   importRunId   String?
   importRun     ImportRun? @relation(fields: [importRunId], references: [id])
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime   @default(now())
 
   @@index([entidad, entidadId])
   @@index([createdAt])
@@ -157,17 +301,51 @@ model ImportRun {
   actualizados       Int      @default(0)
   sinCambios         Int      @default(0)
   errores            Int      @default(0)
-  estado             String   @default("EN_PROGRESO") // EN_PROGRESO | CONFIRMADO | CANCELADO | FALLIDO
+  estado             String   @default("EN_PROGRESO")
   createdAt          DateTime @default(now())
 
-  auditLogs              AuditLog[]
-  emprendedoresAfectados Emprendedor[] @relation("EmprendedoresAfectados")
+  auditLogs                      AuditLog[]
+  emprendedoresAfectados         Emprendedor[] @relation("EmprendedoresAfectados")
   emprendedoresUltimaImportacion Emprendedor[] @relation("UltimaImportacion")
 }
 
-// Rate limiting de login (Fase 10) — un registro por intento, exitoso o
-// no. Sin FK a Usuario a propósito: también se registran intentos con
-// correos que no existen, para frenar fuerza bruta/enumeración igual.
+model Documento {
+  id                 String      @id @default(cuid())
+  emprendedorId      String
+  emprendedor        Emprendedor @relation(fields: [emprendedorId], references: [id])
+  etapa              String
+  nombreArchivo      String
+  storagePath        String
+  mimeType           String
+  tamanoBytes        Int
+  subidoPorId        String
+  subidoPor          Usuario     @relation("DocumentosSubidos", fields: [subidoPorId], references: [id])
+  estado             String      @default("Pendiente")
+  comentarioRevision String?
+  revisadoPorId      String?
+  revisadoPor        Usuario?    @relation("DocumentosRevisados", fields: [revisadoPorId], references: [id])
+  revisadoEn         DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([emprendedorId, etapa])
+  @@index([estado])
+}
+
+model SolicitudRestablecimiento {
+  id            String    @id @default(cuid())
+  usuarioId     String
+  usuario       Usuario   @relation("SolicitudUsuario", fields: [usuarioId], references: [id])
+  correo        String
+  estado        String    @default("Pendiente")
+  atendidaPorId String?
+  atendidaPor   Usuario?  @relation("SolicitudAtendidaPor", fields: [atendidaPorId], references: [id])
+  atendidaEn    DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([estado])
+}
+
 model LoginAttempt {
   id        String   @id @default(cuid())
   correo    String

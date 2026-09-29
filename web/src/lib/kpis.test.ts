@@ -44,6 +44,18 @@ function emprendedor(over: Partial<Emprendedor>): Emprendedor {
     responsable: "Docente A",
     correo: "ana@test.com",
     telefono: "3000000000",
+    faseId: null,
+    faseNombre: null,
+    sede: null,
+    programaAcademico: null,
+    facultad: null,
+    tipoInnovacion: null,
+    madurez: null,
+    problema: null,
+    descripcionIdea: null,
+    canalPostulacion: null,
+    cohorteId: null,
+    cohorteNombre: null,
     ...over,
   };
 }
@@ -59,8 +71,8 @@ describe("getCumplimientoCompromisos", () => {
 
     const compromisos = [
       compromiso({ id: "1", estado: "Cumplido", fechaCompromiso: "2026-01-01" }),
-      compromiso({ id: "2", estado: "Pendiente", fechaCompromiso: "2026-01-01" }), // vencido
-      compromiso({ id: "3", estado: "En proceso", fechaCompromiso: "2026-12-01" }), // futuro, no vencido
+      compromiso({ id: "2", estado: "Pendiente", fechaCompromiso: "2026-01-01" }),
+      compromiso({ id: "3", estado: "En proceso", fechaCompromiso: "2026-12-01" }),
       compromiso({ id: "4", estado: "Cumplido", fechaCompromiso: "2026-02-01" }),
     ];
 
@@ -98,7 +110,6 @@ describe("getEfectividadReuniones", () => {
     const r = getEfectividadReuniones(reuniones);
 
     expect(r.total).toBe(5);
-    // 2 realizadas de 3 resueltas (2 realizadas + 1 cancelada) = 67%
     expect(r.pctEfectividad).toBe(67);
     expect(r.porEstado).toEqual([
       { estado: "Realizada", count: 2 },
@@ -140,14 +151,14 @@ describe("getIngresosPorMes", () => {
         emprendedor({ id: "1", fechaIngreso: "2026-06-10" }),
         emprendedor({ id: "2", fechaIngreso: "2026-06-20" }),
         emprendedor({ id: "3", fechaIngreso: "2026-05-01" }),
-        emprendedor({ id: "4", fechaIngreso: "2025-01-01" }), // fuera de la ventana de 6 meses
+        emprendedor({ id: "4", fechaIngreso: "2025-01-01" }),
       ],
       6
     );
 
     expect(r).toHaveLength(6);
-    expect(r[r.length - 1].count).toBe(2); // mes actual (junio)
-    expect(r[r.length - 2].count).toBe(1); // mayo
-    expect(r.reduce((sum, m) => sum + m.count, 0)).toBe(3); // el de 2025 no entra
+    expect(r[r.length - 1].count).toBe(2);
+    expect(r[r.length - 2].count).toBe(1);
+    expect(r.reduce((sum, m) => sum + m.count, 0)).toBe(3);
   });
 });

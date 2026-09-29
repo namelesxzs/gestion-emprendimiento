@@ -3,10 +3,6 @@ import { ETAPAS, ESTADOS_EMPRENDEDOR } from "@/lib/validation/emprendedor";
 import { COLUMNAS_REQUERIDAS, COLUMNA_OPCIONAL_RESPONSABLE } from "@/lib/validation/importar";
 
 const ENCABEZADOS = [...COLUMNAS_REQUERIDAS.slice(0, 6), COLUMNA_OPCIONAL_RESPONSABLE, ...COLUMNAS_REQUERIDAS.slice(6)];
-// Orden final: Nombre, Emprendimiento, Sector, Etapa_UIE, Estado,
-// Fecha_Ingreso, Responsable, Correo, Telefono — sin columna "ID": el
-// importador nunca la usa (la clave de matching es Correo), incluirla solo
-// confundiría sobre qué campo identifica al emprendedor.
 
 const FILA_EJEMPLO = [
   "Juan Pérez",
@@ -48,7 +44,6 @@ export async function generarPlantillaEmprendedores(): Promise<Buffer> {
 
   const colIndex = (nombre: string) => ENCABEZADOS.indexOf(nombre) + 1;
 
-  // Listas desplegables para reducir errores de captura, hasta la fila 200.
   const ultimaFila = 200;
   for (let fila = 2; fila <= ultimaFila; fila++) {
     ws.getCell(fila, colIndex("Etapa_UIE")).dataValidation = {

@@ -13,9 +13,6 @@ export default defineConfig({
     env: {
       DATABASE_URL: "file:./test.db",
     },
-    // Los tests de integración (importer/actions) comparten una única
-    // SQLite de prueba y la limpian en beforeEach — correrlos en paralelo
-    // pisaría datos entre archivos.
     fileParallelism: false,
   },
 });

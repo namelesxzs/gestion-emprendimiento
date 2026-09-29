@@ -20,8 +20,6 @@ export function getEfectividadReuniones(reuniones: Reunion[]) {
   }));
   const realizadas = porEstado.find((e) => e.estado === "Realizada")?.count ?? 0;
   const canceladas = porEstado.find((e) => e.estado === "Cancelada")?.count ?? 0;
-  // La efectividad solo tiene sentido sobre reuniones ya resueltas
-  // (Realizada o Cancelada); las Programadas/Reagendadas aún no ocurrieron.
   const resueltas = realizadas + canceladas;
   const pctEfectividad = resueltas ? Math.round((realizadas / resueltas) * 100) : 0;
 
@@ -38,8 +36,6 @@ export function getDistribucionSector(emprendedores: Emprendedor[]) {
     .sort((a, b) => b.count - a.count);
 }
 
-/** Últimos `meses` meses (incluyendo el actual), en orden cronológico,
- * contando por fechaIngreso — para mostrar la tendencia de altas. */
 export function getIngresosPorMes(emprendedores: Emprendedor[], meses = 6) {
   const hoy = new Date();
   const periodos: { key: string; label: string }[] = [];

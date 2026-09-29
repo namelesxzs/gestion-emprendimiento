@@ -19,7 +19,7 @@ const ESTADO_COLOR: Record<string, string> = {
 function getMonthGrid(year: number, month: number): (number | null)[] {
   const firstDay = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const startOffset = (firstDay.getDay() + 6) % 7; // lunes = 0
+  const startOffset = (firstDay.getDay() + 6) % 7;
 
   const cells: (number | null)[] = [];
   for (let i = 0; i < startOffset; i++) cells.push(null);

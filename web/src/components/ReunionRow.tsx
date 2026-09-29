@@ -30,10 +30,6 @@ export function ReunionRow({ reunion, puedeGestionar }: { reunion: ReunionRowDat
   );
   const [, cancelarAction, cancelarPending] = useActionState(cancelarReunion, initialState);
 
-  // Cerrar el formulario al confirmar reagendamiento: se ajusta durante el
-  // render (patrón de React para "derivar estado de un cambio", no un
-  // efecto) comparando contra el último estado de acción visto, en vez de
-  // sincronizar con un useEffect que dispararía un re-render en cascada.
   const [ultimoEstadoVisto, setUltimoEstadoVisto] = useState(reagendarState);
   if (reagendarState !== ultimoEstadoVisto) {
     setUltimoEstadoVisto(reagendarState);

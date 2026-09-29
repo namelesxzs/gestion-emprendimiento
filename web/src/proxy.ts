@@ -3,14 +3,24 @@ import { auth } from "@/auth";
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
-  const isLoginPage = req.nextUrl.pathname === "/login";
+  const { pathname } = req.nextUrl;
+  const isPublicPage = pathname === "/login" || pathname === "/recuperar-acceso";
 
-  if (!isLoggedIn && !isLoginPage) {
+  if (!isLoggedIn && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", req.nextUrl.origin));
   }
 
-  if (isLoggedIn && isLoginPage) {
+  if (isLoggedIn && isPublicPage) {
     return NextResponse.redirect(new URL("/", req.nextUrl.origin));
+  }
+
+  if (
+    isLoggedIn &&
+    req.auth?.user.debeCambiarPassword &&
+    pathname !== "/cambiar-password" &&
+    !pathname.startsWith("/api/")
+  ) {
+    return NextResponse.redirect(new URL("/cambiar-password", req.nextUrl.origin));
   }
 });
 

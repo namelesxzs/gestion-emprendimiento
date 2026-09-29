@@ -27,10 +27,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Se obtiene en el servidor y se pasa como valor inicial a SessionProvider
-  // para que cada navegación (incluida la que sigue a un login vía Server
-  // Action) refleje la sesión real de inmediato, sin esperar a un refetch
-  // del lado del cliente ni requerir un F5.
   const session = await auth();
 
   return (

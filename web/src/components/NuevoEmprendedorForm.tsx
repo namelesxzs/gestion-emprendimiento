@@ -2,13 +2,64 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { registrarEmprendedor, type RegistrarEmprendedorState } from "@/app/emprendedores/actions";
-import { ETAPAS, ESTADOS_EMPRENDEDOR } from "@/lib/validation/emprendedor";
+import {
+  ETAPAS,
+  ESTADOS_EMPRENDEDOR,
+  TIPOS_INNOVACION,
+  NIVELES_MADUREZ,
+  CANALES_POSTULACION,
+} from "@/lib/validation/emprendedor";
+import { SEDES } from "@/lib/validation/usuario";
+import type { Cohorte } from "@/lib/types";
+import type { FaseRow } from "@/lib/queries";
 import { Card } from "./Card";
-import { FormField } from "./FormField";
+import { FormField, FormTextArea } from "./FormField";
 
 const initialState: RegistrarEmprendedorState = {};
 
-export function NuevoEmprendedorForm({ onDone }: { onDone: () => void }) {
+function Selector({
+  name,
+  label,
+  opciones,
+  defaultValue = "",
+}: {
+  name: string;
+  label: string;
+  opciones: readonly string[];
+  defaultValue?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={name} className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+        {label}
+      </label>
+      <select
+        id={name}
+        name={name}
+        defaultValue={defaultValue}
+        className="rounded-md border px-3 py-2 text-sm outline-none"
+        style={{ borderColor: "var(--border-hairline)", color: "var(--text-primary)" }}
+      >
+        <option value="">Sin especificar</option>
+        {opciones.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+export function NuevoEmprendedorForm({
+  onDone,
+  fases,
+  cohortes,
+}: {
+  onDone: () => void;
+  fases: FaseRow[];
+  cohortes: Cohorte[];
+}) {
   const [state, formAction, isPending] = useActionState(registrarEmprendedor, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -66,6 +117,56 @@ export function NuevoEmprendedorForm({ onDone }: { onDone: () => void }) {
         <FormField label="Fecha de ingreso" name="fechaIngreso" type="date" required />
         <FormField label="Correo" name="correo" type="email" required />
         <FormField label="Teléfono" name="telefono" required />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="faseId" className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+            Fase (opcional — eje independiente de la etapa)
+          </label>
+          <select
+            id="faseId"
+            name="faseId"
+            defaultValue=""
+            className="rounded-md border px-3 py-2 text-sm outline-none"
+            style={{ borderColor: "var(--border-hairline)", color: "var(--text-primary)" }}
+          >
+            <option value="">Sin asignar</option>
+            {fases.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="cohorteId" className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+            Cohorte (opcional)
+          </label>
+          <select
+            id="cohorteId"
+            name="cohorteId"
+            defaultValue=""
+            className="rounded-md border px-3 py-2 text-sm outline-none"
+            style={{ borderColor: "var(--border-hairline)", color: "var(--text-primary)" }}
+          >
+            <option value="">Sin asignar</option>
+            {cohortes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <p className="text-xs font-bold uppercase tracking-wide sm:col-span-2" style={{ color: "var(--brand-primary)" }}>
+          Ficha de caracterización (Manual 6.2 — opcional)
+        </p>
+        <Selector name="sede" label="Sede" opciones={SEDES} />
+        <FormField label="Programa académico" name="programaAcademico" />
+        <FormField label="Facultad" name="facultad" />
+        <Selector name="tipoInnovacion" label="Tipo de innovación" opciones={TIPOS_INNOVACION} />
+        <Selector name="madurez" label="Madurez del emprendimiento" opciones={NIVELES_MADUREZ} />
+        <Selector name="canalPostulacion" label="Canal de postulación" opciones={CANALES_POSTULACION} />
+        <FormTextArea label="Problema que busca resolver" name="problema" />
+        <FormTextArea label="Descripción de la idea de negocio" name="descripcionIdea" />
 
         {state.error && (
           <p className="sm:col-span-2 text-sm" style={{ color: "var(--status-critical)" }}>

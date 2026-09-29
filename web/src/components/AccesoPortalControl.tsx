@@ -11,9 +11,6 @@ export function AccesoPortalControl({ emprendedorId, yaTieneAcceso }: { emprende
   const [cerrado, setCerrado] = useState(false);
   const { data: session } = useSession();
 
-  // Solo Administrador da de alta cuentas — mismo límite que /usuarios. El
-  // control real está en el servidor (requireRole dentro de la action);
-  // esto solo evita mostrar un botón que va a devolver 403.
   if (session?.user.rol !== "ADMINISTRADOR") return null;
 
   if (yaTieneAcceso && !state.passwordTemporal) {
