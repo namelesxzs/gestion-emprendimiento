@@ -12,12 +12,6 @@ import { CohortesTab } from "./configuracion/CohortesTab";
 const TABS = ["Fases", "Etapas", "Instrumentos", "Reglas de avance", "Cohortes"] as const;
 type Tab = (typeof TABS)[number];
 
-/** El catálogo configurable en sí (ver auditoría §07/§08, C1) — a
- * diferencia de /ruta (las fases activas como pestañas, para todos los
- * roles), esta pantalla es donde el Administrador activa, desactiva y
- * ajusta lo que /ruta y los formularios de captura terminan mostrando.
- * Cohortes (Fase 12, C6) vive aquí también — es config del Administrador,
- * aunque no es un instrumento activable/desactivable como Fase/Etapa. */
 export function ConfiguracionExplorer({
   fases,
   etapas,

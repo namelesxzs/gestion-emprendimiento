@@ -22,6 +22,18 @@ function emprendedor(over: Partial<Emprendedor>): Emprendedor {
     responsable: "Docente A",
     correo: "ana@test.com",
     telefono: "3000000000",
+    faseId: null,
+    faseNombre: null,
+    sede: null,
+    programaAcademico: null,
+    facultad: null,
+    tipoInnovacion: null,
+    madurez: null,
+    problema: null,
+    descripcionIdea: null,
+    canalPostulacion: null,
+    cohorteId: null,
+    cohorteNombre: null,
     ...over,
   };
 }

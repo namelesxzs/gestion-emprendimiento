@@ -23,7 +23,6 @@ export async function programarReunion(
 ): Promise<ReunionActionState> {
   let session;
   try {
-    // RF08: solo Administrador y Docente programan reuniones.
     session = await requireRole("ADMINISTRADOR", "DOCENTE");
   } catch (error) {
     if (error instanceof AuthzError) return { error: error.message };

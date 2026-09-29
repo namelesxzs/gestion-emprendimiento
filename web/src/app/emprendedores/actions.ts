@@ -17,8 +17,6 @@ export async function registrarEmprendedor(
 ): Promise<RegistrarEmprendedorState> {
   let session;
   try {
-    // RF01/RF13: solo Administrador y Docente pueden registrar emprendedores.
-    // Se verifica aquí (servidor), no solo ocultando el botón en la UI.
     session = await requireRole("ADMINISTRADOR", "DOCENTE");
   } catch (error) {
     if (error instanceof AuthzError) return { error: error.message };
@@ -113,8 +111,6 @@ export async function editarEmprendedor(
 ): Promise<EditarEmprendedorState> {
   let session;
   try {
-    // RF02/RF07/RF13: solo Administrador y Docente pueden editar
-    // emprendedores o actualizar su etapa. Verificado en servidor.
     session = await requireRole("ADMINISTRADOR", "DOCENTE");
   } catch (error) {
     if (error instanceof AuthzError) return { error: error.message };
@@ -152,9 +148,6 @@ export async function editarEmprendedor(
     return { error: "El emprendedor que intentas editar ya no existe." };
   }
 
-  // Eje independiente de la etapa (ver auditoría §07): si cambia la fase,
-  // se consulta el motor de reglas de avance — sin reglas configuradas
-  // para esa transición, el paso queda libre.
   const nuevaFaseId = parsed.data.faseId || null;
   if (nuevaFaseId && nuevaFaseId !== actual.faseId) {
     const verificacion = await verificarReglaAvance(actual.id, actual.faseId, nuevaFaseId);
@@ -168,9 +161,6 @@ export async function editarEmprendedor(
     return { error: "Ese correo ya pertenece a otro emprendedor." };
   }
 
-  // Avanzar de etapa (no corregir hacia atrás, no dejarla igual) exige un
-  // documento de soporte Aprobado para la etapa que se deja — así se
-  // cumple que cada paso de la cadena de valor quede sustentado.
   const avanzaEtapa =
     ETAPA_ORDER.indexOf(parsed.data.etapa as Etapa) > ETAPA_ORDER.indexOf(actual.etapa as Etapa);
   if (avanzaEtapa) {
@@ -246,8 +236,6 @@ export async function editarEmprendedor(
   revalidatePath("/");
   return { success: true };
 }
-
-// --- Equipo emprendedor (Manual 6.1) ---------------------------------------
 
 export type IntegranteEquipoState = { error?: string; success?: boolean };
 

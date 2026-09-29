@@ -126,7 +126,7 @@ export function EtapasTab({ etapas, fases }: { etapas: EtapaRow[]; fases: FaseRo
       {editando && <EditarEtapaForm etapa={editando} fases={fases} onDone={() => setEditandoId(null)} />}
       <Card
         title="Etapas"
-        subtitle="Descubrir, Incubar, Formar, Fomentar, Financiar — la cadena de valor actual, sin modificar. Eje independiente de la fase (ver auditoría §07)."
+        subtitle="Descubrir, Incubar, Formar, Fomentar, Financiar — la cadena de valor actual, sin modificar. Eje independiente de la fase del Manual."
       >
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

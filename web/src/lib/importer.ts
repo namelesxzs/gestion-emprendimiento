@@ -9,7 +9,7 @@ import {
 } from "@/lib/validation/importar";
 
 const HOJA_EMPRENDEDORES = "Emprendedores";
-export const TAMANO_MAXIMO_BYTES = 5 * 1024 * 1024; // 5MB, ver decisión §18 de la auditoría
+export const TAMANO_MAXIMO_BYTES = 5 * 1024 * 1024;
 
 export interface ErrorFila {
   fila: number;
@@ -33,7 +33,7 @@ export interface FilaResultado {
   nombre?: string;
   cambios?: CambioCampo[];
   errores?: ErrorFila[];
-  emprendedorId?: string; // solo si estado = actualizado
+  emprendedorId?: string;
   datos?: FilaEmprendedorInput;
 }
 
@@ -64,13 +64,6 @@ function celdaTexto(cell: ExcelJS.Cell): string {
   return String(v).trim();
 }
 
-/**
- * Parsea + valida + calcula el diff contra la base de datos actual.
- * No modifica nada — es seguro llamarla tantas veces como se quiera.
- * Se usa tanto para el preview como, de nuevo, justo antes de aplicar en
- * confirmarImportacion (para que la importación sea idempotente incluso
- * si la BD cambió entre el preview y la confirmación).
- */
 export async function analizarExcel(buffer: Buffer): Promise<ResultadoAnalisis> {
   const workbook = new ExcelJS.Workbook();
   try {
@@ -138,11 +131,10 @@ export async function analizarExcel(buffer: Buffer): Promise<ResultadoAnalisis> 
   }
 
   const filas: FilaResultado[] = [];
-  const correosVistos = new Map<string, number>(); // correo -> primera fila donde aparece
+  const correosVistos = new Map<string, number>();
 
   for (let fila = 2; fila <= hoja.rowCount; fila++) {
     const row = hoja.getRow(fila);
-    // Fila completamente vacía: se ignora, no es un error.
     if (row.cellCount === 0 || row.values === undefined) continue;
     const vacia = COLUMNAS_REQUERIDAS.every((c) => celdaTexto(row.getCell(columnaPorNombre.get(c)!)) === "");
     if (vacia) continue;
@@ -225,7 +217,6 @@ export async function analizarExcel(buffer: Buffer): Promise<ResultadoAnalisis> 
     filas.push({ fila, estado: "nuevo", correo, nombre: parsed.data.nombre, datos: parsed.data });
   }
 
-  // Match + diff contra la BD, solo para las filas que pasaron validación.
   const correosValidos = filas.filter((f) => f.datos).map((f) => f.correo!);
   const existentes = correosValidos.length
     ? await prisma.emprendedor.findMany({ where: { correo: { in: correosValidos } } })

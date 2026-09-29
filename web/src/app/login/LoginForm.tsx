@@ -11,9 +11,6 @@ export function LoginForm() {
 
   useEffect(() => {
     if (state.success) {
-      // Navegación dura a propósito: fuerza que el layout raíz se vuelva a
-      // ejecutar en servidor y lea la sesión ya autenticada, en vez de una
-      // transición de cliente que reutilizaría el layout previo (sin sesión).
       window.location.href = "/";
     }
   }, [state]);

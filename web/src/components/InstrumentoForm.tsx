@@ -1,12 +1,5 @@
 "use client";
 
-// Motor de formularios genérico (ver auditoría §07/§08, C3): dibuja el
-// formulario de un Instrumento del catálogo a partir de su `camposSchema`
-// — activar un instrumento nuevo desde /configuracion no exige programar
-// una pantalla propia, esta es la única que hace falta. Las tablas del
-// Manual (integrantes, criterios de rúbrica, riesgos, KPIs) se dibujan como
-// tablas; las firmas llevan confirmación y las sella el servidor.
-
 import { useActionState, useEffect, useState } from "react";
 import { guardarRespuestaInstrumento, type GuardarRespuestaInstrumentoState } from "@/app/instrumentos/actions";
 import { nombreCelda, puedeFirmar, type CampoRuntime } from "@/lib/validation/catalogo";
@@ -26,8 +19,6 @@ function Ayuda({ texto }: { texto?: string }) {
   );
 }
 
-/** Control de un valor escalar — usado tanto por campos sueltos como por
- * celdas de una tabla. */
 function Control({
   campo,
   name,
@@ -229,7 +220,6 @@ export function InstrumentoForm({
 }: {
   instrumentoId: string;
   emprendedorId: string;
-  /** Registro a editar; sin él se crea uno nuevo (o se edita el único). */
   respuestaId?: string;
   campos: CampoRuntime[];
   datosPrevios?: Record<string, unknown>;
@@ -237,8 +227,6 @@ export function InstrumentoForm({
   onDone: () => void;
 }) {
   const [state, formAction, isPending] = useActionState(guardarRespuestaInstrumento, initialState);
-  // Valores numéricos de las tablas, solo para mostrar los totales en vivo —
-  // el total que se guarda lo calcula el servidor.
   const [numeros, setNumeros] = useState<Record<string, number>>(() => {
     const ini: Record<string, number> = {};
     for (const c of campos) {

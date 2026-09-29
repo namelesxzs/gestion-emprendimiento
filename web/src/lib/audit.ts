@@ -20,7 +20,6 @@ interface AuditRecordParams extends AuditContext {
   resultado?: "EXITO" | "ERROR";
 }
 
-/** Escribe una entrada de auditoría. Nunca lanza — un fallo de auditoría no debe tumbar la operación de negocio, pero sí queda logueado en consola. */
 export async function registrarAuditoria(params: AuditRecordParams) {
   try {
     await prisma.auditLog.create({
@@ -42,11 +41,6 @@ export async function registrarAuditoria(params: AuditRecordParams) {
   }
 }
 
-/**
- * Envuelve una mutación de negocio con auditoría automática: registra éxito
- * (con el resultado como valorNuevo) o error, sin que el caller tenga que
- * acordarse de auditar cada operación por separado.
- */
 export async function withAudit<T extends { id: string }>(
   ctx: AuditContext & { entidad: string; accion: AccionAuditoria; valorAnterior?: Prisma.InputJsonValue | null },
   fn: () => Promise<T>

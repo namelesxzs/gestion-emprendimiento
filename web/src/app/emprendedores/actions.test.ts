@@ -112,9 +112,6 @@ describe("editarEmprendedor — sustento documental por etapa", () => {
 });
 
 async function sesionDocenteReal() {
-  // La auditoría exige un usuarioId real (FK a Usuario) — sesionDocente()
-  // usa un id de mentira que solo sirve para pruebas que no verifican
-  // AuditLog.
   const docente = await prisma.usuario.create({
     data: { nombre: "Docente Real", correo: `docente-real-${Math.random()}@test.com`, passwordHash: "x", rol: "DOCENTE" },
   });

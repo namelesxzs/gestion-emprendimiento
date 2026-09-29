@@ -9,9 +9,6 @@ import type { Acompanamiento, Documento, Emprendedor, Reunion } from "@/lib/type
 import type { InstrumentoRow, RespuestaInstrumentoRowConEmprendedor } from "@/lib/queries";
 import { getProximasReuniones, getUltimoAvance } from "@/lib/view";
 
-// Vista de solo lectura para el rol EMPRENDEDOR: solo su propio progreso,
-// nunca datos de otros (RF13). Los datos que recibe ya vienen acotados a un
-// único emprendedor desde la consulta a la base, no se filtran aquí.
 export function MiPerfilDashboard({
   emprendedor,
   acompanamientos,

@@ -21,7 +21,6 @@ function revalidarConfiguracion() {
   revalidatePath("/ruta");
 }
 
-// --- Fase -------------------------------------------------------------
 
 export async function editarFase(_prevState: CatalogoActionState, formData: FormData): Promise<CatalogoActionState> {
   let session;
@@ -103,7 +102,6 @@ export async function toggleActivaFase(_prevState: CatalogoActionState, formData
   return initialOk;
 }
 
-// --- Etapa --------------------------------------------------------------
 
 export async function editarEtapa(_prevState: CatalogoActionState, formData: FormData): Promise<CatalogoActionState> {
   let session;
@@ -185,7 +183,6 @@ export async function toggleActivaEtapa(_prevState: CatalogoActionState, formDat
   return initialOk;
 }
 
-// --- Instrumento ----------------------------------------------------------
 
 export async function editarInstrumento(
   _prevState: CatalogoActionState,
@@ -275,9 +272,6 @@ export async function toggleActivoInstrumento(
       where: { id: actual.id },
       data: { activo: !actual.activo },
     });
-    // Desactivar/activar un instrumento nunca borra las InstrumentoRespuesta
-    // ya diligenciadas — solo cambia si aparece en /ruta y en los
-    // formularios de captura para emprendedores nuevos.
     await registrarAuditoria({
       usuarioId: session.user.id,
       rol: session.user.rol,
@@ -297,7 +291,6 @@ export async function toggleActivoInstrumento(
   return initialOk;
 }
 
-// --- Reglas de avance -------------------------------------------------
 
 export type CrearReglaAvanceState = { error?: string; success?: boolean };
 
@@ -390,7 +383,6 @@ export async function toggleActivaReglaAvance(
   return initialOk;
 }
 
-// --- Cohorte (Fase 12) -----------------------------------------------------
 
 export type CrearCohorteState = { error?: string; success?: boolean };
 

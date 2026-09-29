@@ -14,7 +14,6 @@ export async function cambiarPasswordPropio(
 ): Promise<CambiarPasswordState> {
   let session;
   try {
-    // Cualquier rol autenticado puede cambiar su propia contraseña.
     session = await requireSession();
   } catch (error) {
     if (error instanceof AuthzError) return { error: error.message };
@@ -37,8 +36,6 @@ export async function cambiarPasswordPropio(
       data: { passwordHash, debeCambiarPassword: false },
     });
 
-    // Nunca se audita la contraseña en claro — solo que el propio usuario
-    // reemplazó la temporal por una suya.
     await registrarAuditoria({
       usuarioId: session.user.id,
       rol: session.user.rol,

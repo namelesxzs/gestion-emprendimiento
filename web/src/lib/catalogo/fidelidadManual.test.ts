@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INSTRUMENTOS_SEED } from "../../../prisma/catalogoSeed";
 
-// Contrato con el Manual de Formatos y Metodologías FUMC (agosto 2026): si
-// alguien cambia el catálogo sembrado y deja de calcar el documento, estos
-// tests fallan. Cada expectativa cita la sección del Manual.
-
 const porClave = (clave: string) => {
   const i = INSTRUMENTOS_SEED.find((x) => x.clave === clave);
   if (!i) throw new Error(`Falta el instrumento ${clave}`);

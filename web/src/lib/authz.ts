@@ -9,7 +9,6 @@ export class AuthzError extends Error {
   }
 }
 
-/** Sesión autenticada, o lanza 401. Usar al inicio de cada route handler protegido. */
 export async function requireSession() {
   const session = await auth();
   if (!session?.user) {
@@ -18,7 +17,6 @@ export async function requireSession() {
   return session;
 }
 
-/** Sesión autenticada y con uno de los roles permitidos, o lanza 401/403. */
 export async function requireRole(...roles: Rol[]) {
   const session = await requireSession();
   if (!roles.includes(session.user.rol)) {
@@ -27,7 +25,6 @@ export async function requireRole(...roles: Rol[]) {
   return session;
 }
 
-/** Verifica que el Emprendedor autenticado solo acceda a su propio registro. */
 export function requireOwnEmprendedor(session: { user: { rol: Rol; emprendedorId: string | null } }, emprendedorId: string) {
   if (session.user.rol === "EMPRENDEDOR" && session.user.emprendedorId !== emprendedorId) {
     throw new AuthzError("No autorizado para consultar información de otro emprendedor", 403);

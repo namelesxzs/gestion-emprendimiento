@@ -4,8 +4,6 @@ import { SEDES } from "./usuario";
 export const ETAPAS = ["Descubrir", "Incubar", "Formar", "Fomentar", "Financiar"] as const;
 export const ESTADOS_EMPRENDEDOR = ["Activo", "Graduado", "Inactivo"] as const;
 
-// Ficha de caracterización del emprendimiento (Manual 6.2) — catálogos
-// cerrados que pide el propio Manual.
 export const TIPOS_INNOVACION = ["Base tecnológica", "Social", "Tradicional"] as const;
 export const NIVELES_MADUREZ = ["Idea", "Prototipo", "Operando"] as const;
 export const CANALES_POSTULACION = ["Formulario web", "Feria", "Referido", "Otro"] as const;
@@ -19,13 +17,8 @@ export const emprendedorCreateSchema = z.object({
   fechaIngreso: z.string().trim().min(1, "La fecha de ingreso es obligatoria"),
   correo: z.string().trim().toLowerCase().email("Correo inválido"),
   telefono: z.string().trim().min(1, "El teléfono es obligatorio"),
-  // Eje independiente de `etapa` (ver auditoría §07) — a qué fase del
-  // catálogo configurable pertenece. Opcional: no todo emprendedor tiene
-  // por qué tener fase asignada.
   faseId: z.string().trim().optional(),
   cohorteId: z.string().trim().optional(),
-  // Ficha de caracterización (Manual 6.2) — todos opcionales: se completan
-  // con el tiempo, no bloquean el alta mínima que ya exigía la plataforma.
   sede: z.union([z.enum(SEDES), z.literal("")]).optional(),
   programaAcademico: z.string().trim().optional(),
   facultad: z.string().trim().optional(),
@@ -44,8 +37,6 @@ export const emprendedorUpdateSchema = emprendedorCreateSchema.extend({
 
 export type EmprendedorUpdateInput = z.infer<typeof emprendedorUpdateSchema>;
 
-// --- Equipo emprendedor (Manual 6.1) ---------------------------------------
-
 export const integranteEquipoSchema = z.object({
   emprendedorId: z.string().trim().min(1),
   nombre: z.string().trim().min(1, "El nombre es obligatorio"),
@@ -58,8 +49,6 @@ export const integranteEquipoSchema = z.object({
 });
 
 export type IntegranteEquipoInput = z.infer<typeof integranteEquipoSchema>;
-
-// --- Cohorte ----------------------------------------------------------------
 
 export const cohorteSchema = z.object({
   nombre: z.string().trim().min(1, "El nombre es obligatorio"),

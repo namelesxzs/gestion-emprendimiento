@@ -18,8 +18,6 @@ import { getUltimoAvance } from "@/lib/view";
 export default async function EmprendedoresPage() {
   const session = await auth();
 
-  // RF13: esta vista lista a todos los emprendedores — un Emprendedor no
-  // debe verla, su propio perfil ya está en el Dashboard.
   if (session?.user.rol === "EMPRENDEDOR") {
     redirect("/");
   }

@@ -16,7 +16,6 @@ export async function registrarUsuario(
 ): Promise<RegistrarUsuarioState> {
   let session;
   try {
-    // Solo Administrador da de alta cuentas de personal UIE.
     session = await requireRole("ADMINISTRADOR");
   } catch (error) {
     if (error instanceof AuthzError) return { error: error.message };
@@ -52,7 +51,6 @@ export async function registrarUsuario(
       },
     });
 
-    // Nunca se audita el hash ni la contraseña en claro.
     await registrarAuditoria({
       usuarioId: session.user.id,
       rol: session.user.rol,
@@ -101,8 +99,6 @@ export async function editarUsuario(
   if (!actual) {
     return { error: "El usuario que intentas editar ya no existe." };
   }
-  // Las cuentas de portal viven atadas a un Emprendedor puntual (ver
-  // otorgarAccesoPortal) — no se gestionan desde este formulario genérico.
   if (actual.rol === "EMPRENDEDOR") {
     return { error: "Las cuentas de portal de emprendedores no se editan desde aquí." };
   }
@@ -166,8 +162,6 @@ export async function toggleActivoUsuario(
   const id = formData.get("id");
   if (typeof id !== "string" || !id) return { error: "Usuario inválido." };
 
-  // Un Administrador nunca puede desactivarse a sí mismo — evita que la
-  // institución se quede sin nadie que pueda revertirlo.
   if (id === session.user.id) {
     return { error: "No puedes desactivar tu propia cuenta." };
   }
@@ -223,9 +217,6 @@ export async function restablecerPasswordUsuario(
     const passwordHash = await bcrypt.hash(passwordTemporal, 10);
     await prisma.usuario.update({ where: { id }, data: { passwordHash, debeCambiarPassword: true } });
 
-    // Nunca se guarda ni se audita la contraseña en claro — solo que hubo
-    // un reset. passwordTemporal vive solo en memoria de esta request y en
-    // lo que renderiza el cliente una vez; nunca se persiste en ningún lado.
     await registrarAuditoria({
       usuarioId: session.user.id,
       rol: session.user.rol,

@@ -89,7 +89,7 @@ describe("registrarUsuario", () => {
     const r = await registrarUsuario({}, fd({ nombre: "N", correo: "n2@test.com", password: "12345678", rol: "DOCENTE" }));
 
     expect(r.error).toBeDefined();
-    expect(await prisma.usuario.count()).toBe(1); // solo el admin de test
+    expect(await prisma.usuario.count()).toBe(1);
   });
 
   it("rechaza un correo ya registrado", async () => {
@@ -122,7 +122,7 @@ describe("editarUsuario", () => {
     const actualizado = await prisma.usuario.findUnique({ where: { id: docente.id } });
     expect(actualizado?.nombre).toBe("Editado");
     expect(actualizado?.rol).toBe("COORDINADOR");
-    expect(actualizado?.sede).toBeNull(); // ya no es Docente
+    expect(actualizado?.sede).toBeNull();
 
     const log = await prisma.auditLog.findFirst({ where: { entidad: "Usuario", entidadId: docente.id, accion: "UPDATE" } });
     expect(log?.valorAnterior).toMatchObject({ nombre: "Original", rol: "DOCENTE" });

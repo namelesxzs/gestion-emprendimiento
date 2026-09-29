@@ -72,8 +72,6 @@ function RevisionForm({ respuestaId, onDone }: { respuestaId: string; onDone: ()
 }
 
 function resumenRegistro(inst: InstrumentoRow, r: RespuestaInstrumentoRow): string {
-  // Primer dato legible del registro (fecha de sesión, entrevistado, versión
-  // del BMC...) para distinguir registros de un instrumento con varios.
   for (const c of inst.camposSchema) {
     const v = r.datos[c.clave];
     if ((c.tipo === "fecha" || c.tipo === "texto" || c.tipo === "seleccion") && typeof v === "string" && v) {
@@ -83,12 +81,6 @@ function resumenRegistro(inst: InstrumentoRow, r: RespuestaInstrumentoRow): stri
   return `Registro del ${r.createdAt}`;
 }
 
-/** Catálogo de instrumentos activos aplicable a un emprendedor (ver
- * auditoría §07/§08) — agrupado por fase, con el historial de registros de
- * cada formato y su estado de revisión (Manual §5.6). Diligenciar abre el
- * motor de formularios genérico (InstrumentoForm). Quién ve "Diligenciar" y
- * "Revisar" respeta los responsables que asigna el Manual por instrumento
- * — la verificación real siempre es la del servidor. */
 export function InstrumentosCatalogo({
   emprendedorId,
   instrumentos,
@@ -100,7 +92,6 @@ export function InstrumentosCatalogo({
   respuestas: RespuestaInstrumentoRow[];
   rol: Rol;
 }) {
-  // "<instrumentoId>:nuevo" | "<instrumentoId>:<respuestaId>" | null
   const [formAbierto, setFormAbierto] = useState<string | null>(null);
   const [expandido, setExpandido] = useState<string | null>(null);
   const [revisando, setRevisando] = useState<string | null>(null);

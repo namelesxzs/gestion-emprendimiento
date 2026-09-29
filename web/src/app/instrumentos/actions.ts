@@ -17,17 +17,6 @@ import {
 
 export type GuardarRespuestaInstrumentoState = { error?: string; success?: boolean };
 
-/**
- * Guarda la respuesta de un Instrumento del catálogo para un Emprendedor —
- * el motor de formularios genérico: los campos válidos vienen del
- * `camposSchema` del propio instrumento, no de código nuevo por cada formato
- * (ver auditoría §07/§08, C3).
- *
- * - Con `respuestaId`: edita ese registro puntual.
- * - Sin `respuestaId` y el instrumento admite varios registros (bitácora por
- *   sesión, entrevistas, versiones del BMC por gate...): crea uno nuevo.
- * - Sin `respuestaId` y registro único: edita el existente o lo crea.
- */
 export async function guardarRespuestaInstrumento(
   _prevState: GuardarRespuestaInstrumentoState,
   formData: FormData
@@ -47,8 +36,6 @@ export async function guardarRespuestaInstrumento(
   });
   if (!parsed.success) return { error: "Datos inválidos." };
 
-  // Un Emprendedor solo puede diligenciar instrumentos de su propio
-  // registro (RF13) — verificado antes de tocar cualquier dato.
   if (session.user.rol === "EMPRENDEDOR") {
     try {
       requireOwnEmprendedor(session, parsed.data.emprendedorId);
@@ -62,10 +49,6 @@ export async function guardarRespuestaInstrumento(
   if (!instrumento) return { error: "El instrumento ya no existe." };
   if (!instrumento.activo) return { error: "Este instrumento fue desactivado por el Administrador." };
 
-  // El Manual asigna un responsable de diligenciar por instrumento (ver
-  // src/lib/catalogo/permisos.ts) — no todos los roles pueden diligenciar
-  // todos los formatos, esto se verifica en el servidor, no solo ocultando
-  // el botón en /emprendedores o en el portal del Emprendedor.
   if (!puedeDiligenciarInstrumento(session.user.rol, instrumento.responsableDiligencia)) {
     return {
       error:
@@ -78,8 +61,6 @@ export async function guardarRespuestaInstrumento(
   const emprendedor = await prisma.emprendedor.findUnique({ where: { id: parsed.data.emprendedorId } });
   if (!emprendedor) return { error: "El emprendedor ya no existe." };
 
-  // Registro a editar: el indicado, o el único existente si el instrumento
-  // no admite varios. Siempre del mismo instrumento y emprendedor.
   let existente = null;
   if (parsed.data.respuestaId) {
     existente = await prisma.instrumentoRespuesta.findUnique({ where: { id: parsed.data.respuestaId } });
@@ -112,7 +93,6 @@ export async function guardarRespuestaInstrumento(
     const respuesta = existente
       ? await prisma.instrumentoRespuesta.update({
           where: { id: existente.id },
-          // Editar un registro ya revisado lo devuelve a revisión (§5.6).
           data: {
             datos: datosJson,
             registradoPorId: session.user.id,
@@ -152,11 +132,6 @@ export async function guardarRespuestaInstrumento(
 
 export type RevisarRespuestaInstrumentoState = { error?: string; success?: boolean };
 
-/**
- * Revisión de un formato diligenciado por el responsable que asigna el
- * Manual (§5.6): lo marca "Revisado" o lo "Devuelve" con un comentario para
- * que se corrija.
- */
 export async function revisarRespuestaInstrumento(
   _prevState: RevisarRespuestaInstrumentoState,
   formData: FormData

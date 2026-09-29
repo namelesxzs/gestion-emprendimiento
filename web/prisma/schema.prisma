@@ -1,8 +1,3 @@
-// Prisma schema — Plataforma UIE
-// SQLite no soporta enums nativos ni listas escalares: los campos de tipo
-// "enum" (etapa, estado, rol, etc.) se modelan como String, validados con
-// Zod en la capa de aplicación (ver src/lib/validation).
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -13,95 +8,79 @@ datasource db {
 }
 
 model Usuario {
-  id            String    @id @default(cuid())
-  nombre        String
-  correo        String    @unique
-  passwordHash  String
-  rol           String // ADMINISTRADOR | DOCENTE | COORDINADOR | EMPRENDEDOR
-  // Sede física a la que pertenece — obligatoria para DOCENTE (alimenta los
-  // KPIs institucionales por sede), no aplica a los demás roles.
-  sede          String?
-  activo        Boolean   @default(true)
-  // true cuando la contraseña actual es temporal (alta de portal, reset de
-  // Admin o solicitud de recuperación atendida) — el proxy fuerza pasar por
-  // /cambiar-password antes de cualquier otra ruta mientras esté en true.
-  debeCambiarPassword Boolean @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                  String   @id @default(cuid())
+  nombre              String
+  correo              String   @unique
+  passwordHash        String
+  rol                 String
+  sede                String?
+  activo              Boolean  @default(true)
+  debeCambiarPassword Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  // Solo si rol = EMPRENDEDOR: vincula la cuenta a su propio registro.
   emprendedorId String?      @unique
   emprendedor   Emprendedor? @relation("CuentaEmprendedor", fields: [emprendedorId], references: [id])
 
-  emprendedoresACargo Emprendedor[]    @relation("Responsable")
-  acompanamientos     Acompanamiento[]
-  reuniones           Reunion[]
-  auditLogs           AuditLog[]
-  importRuns          ImportRun[]
-  documentosSubidos   Documento[]      @relation("DocumentosSubidos")
-  documentosRevisados Documento[]      @relation("DocumentosRevisados")
-  solicitudesRestablecimiento SolicitudRestablecimiento[] @relation("SolicitudUsuario")
-  solicitudesAtendidas        SolicitudRestablecimiento[] @relation("SolicitudAtendidaPor")
-  respuestasInstrumentoRegistradas InstrumentoRespuesta[] @relation("RespuestaRegistradaPor")
-  respuestasInstrumentoRevisadas   InstrumentoRespuesta[] @relation("RespuestaRevisadaPor")
+  emprendedoresACargo              Emprendedor[]               @relation("Responsable")
+  acompanamientos                  Acompanamiento[]
+  reuniones                        Reunion[]
+  auditLogs                        AuditLog[]
+  importRuns                       ImportRun[]
+  documentosSubidos                Documento[]                 @relation("DocumentosSubidos")
+  documentosRevisados              Documento[]                 @relation("DocumentosRevisados")
+  solicitudesRestablecimiento      SolicitudRestablecimiento[] @relation("SolicitudUsuario")
+  solicitudesAtendidas             SolicitudRestablecimiento[] @relation("SolicitudAtendidaPor")
+  respuestasInstrumentoRegistradas InstrumentoRespuesta[]      @relation("RespuestaRegistradaPor")
+  respuestasInstrumentoRevisadas   InstrumentoRespuesta[]      @relation("RespuestaRevisadaPor")
 
   @@index([rol])
   @@index([sede])
 }
 
 model Emprendedor {
-  id                   String    @id @default(cuid())
-  // Business Key futura (aún no existe en el Excel oficial) — nullable hasta
-  // que la institución la provea.
-  codigoInstitucional  String?   @unique
-  // Matching Key interina del importador — el campo más estable disponible hoy.
-  correo               String    @unique
-  nombre               String
-  emprendimiento       String
-  sector               String
-  telefono             String
-  etapa                String // Descubrir | Incubar | Formar | Fomentar | Financiar
-  estado               String    @default("Activo") // Activo | Graduado | Inactivo
-  fechaIngreso         DateTime
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  // Soft delete — nunca DELETE físico sobre un registro con historial.
-  deletedAt            DateTime?
+  id                  String    @id @default(cuid())
+  codigoInstitucional String?   @unique
+  correo              String    @unique
+  nombre              String
+  emprendimiento      String
+  sector              String
+  telefono            String
+  etapa               String
+  estado              String    @default("Activo")
+  fechaIngreso        DateTime
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
 
-  responsableId   String?
-  responsable     Usuario?   @relation("Responsable", fields: [responsableId], references: [id])
+  responsableId String?
+  responsable   Usuario? @relation("Responsable", fields: [responsableId], references: [id])
 
   lastImportRunId String?
   lastImportRun   ImportRun? @relation("UltimaImportacion", fields: [lastImportRunId], references: [id])
 
-  // Eje independiente de `etapa` (ver auditoría del Manual FUMC, §07): a qué
-  // fase del catálogo configurable pertenece el emprendedor. No hay regla
-  // fija que ate una etapa a una fase — lo asigna el asesor/admin aparte.
   faseId String?
   fase   Fase?   @relation(fields: [faseId], references: [id])
 
-  // Ficha de caracterización del emprendimiento (Manual 6.2) — todos
-  // opcionales porque los emprendedores existentes no los tienen todavía y
-  // el importador de Excel no los toca.
-  sede              String? // Sede física del emprendimiento — distinta de la sede del Docente responsable.
+  sede              String?
   programaAcademico String?
   facultad          String?
-  tipoInnovacion    String? // Base tecnológica | Social | Tradicional
-  madurez           String? // Idea | Prototipo | Operando
+  tipoInnovacion    String?
+  madurez           String?
   problema          String?
   descripcionIdea   String?
-  canalPostulacion  String? // Formulario web | Feria | Referido | Otro
+  canalPostulacion  String?
 
   cohorteId String?
   cohorte   Cohorte? @relation(fields: [cohorteId], references: [id])
 
-  cuentaUsuario     Usuario?           @relation("CuentaEmprendedor")
-  acompanamientos   Acompanamiento[]
-  reuniones         Reunion[]
-  importaciones     ImportRun[]        @relation("EmprendedoresAfectados")
-  documentos        Documento[]
+  cuentaUsuario         Usuario?               @relation("CuentaEmprendedor")
+  acompanamientos       Acompanamiento[]
+  reuniones             Reunion[]
+  importaciones         ImportRun[]            @relation("EmprendedoresAfectados")
+  documentos            Documento[]
   respuestasInstrumento InstrumentoRespuesta[]
-  integrantesEquipo IntegranteEquipo[]
+  integrantesEquipo     IntegranteEquipo[]
 
   @@index([etapa])
   @@index([cohorteId])
@@ -109,21 +88,8 @@ model Emprendedor {
   @@index([faseId])
 }
 
-// ---------------------------------------------------------------------------
-// Catálogo configurable (Fase 11 del roadmap — ver auditoría vs. Manual
-// FUMC). Fase/Etapa/Instrumento no son datos de negocio fijos en código: el
-// Administrador los activa, desactiva y reordena desde /configuracion. Todo
-// el catálogo (incluyendo los 30 instrumentos del Manual) se siembra de una
-// vez — nada queda pendiente de "programar después".
-// ---------------------------------------------------------------------------
-
-// Fase de la Ruta de Emprendimiento (Pre-incubación / Incubación / Egreso).
-// Comentario de la profesora dentro del Manual, anclado a "Fase 1 —
-// Pre-incubación": "Fases que deben quedar en pestañas separadas del
-// aplicativo" — cada Fase activa se renderiza como una pestaña en /ruta.
 model Fase {
   id          String   @id @default(cuid())
-  // Slug estable usado en código/seed — no cambia aunque se edite `nombre`.
   clave       String   @unique
   nombre      String
   descripcion String?
@@ -141,12 +107,6 @@ model Fase {
   @@index([activa])
 }
 
-// Etapa de la cadena de valor (Descubrir…Financiar). Se migran las 5
-// actuales tal cual — mismo `clave` que ya vive como string en
-// Emprendedor.etapa — para no romper nada existente; el catálogo solo las
-// vuelve configurables (activar/desactivar/reordenar) desde ahora en
-// adelante. `faseId` es opcional: asociarla a una fase es una decisión del
-// Administrador, no una regla del sistema.
 model Etapa {
   id        String   @id @default(cuid())
   clave     String   @unique
@@ -163,17 +123,11 @@ model Etapa {
   @@index([faseId])
 }
 
-// Uno de los 30 formatos/metodologías del Manual (tablas de las secciones 6
-// y 7). `camposSchema` describe sus campos (clave, etiqueta, tipo,
-// requerido, opciones) — el motor de formularios genérico (ver
-// InstrumentoForm) los dibuja sin necesitar una pantalla nueva por
-// instrumento.
 model Instrumento {
   id                    String   @id @default(cuid())
   clave                 String   @unique
   nombre                String
   proposito             String
-  // Referencia a la sección del Manual del que viene, ej. "6.3" — trazabilidad.
   origenManual          String?
   faseId                String?
   fase                  Fase?    @relation(fields: [faseId], references: [id])
@@ -183,59 +137,40 @@ model Instrumento {
   orden                 Int      @default(0)
   activo                Boolean  @default(true)
   camposSchema          Json
-  // Manual §5.6: "quién lo revisa y en qué plazo" — días desde que se
-  // diligencia hasta que el responsable de revisar debe revisarlo.
   plazoRevisionDias     Int?
-  // Instrumentos que se diligencian varias veces por emprendimiento: la
-  // bitácora "en cada sesión", una entrevista de Customer Discovery por
-  // persona, una versión del BMC por gate (§5.1), un experimento por
-  // hipótesis... Los demás son un único registro que se edita.
   permiteMultiples      Boolean  @default(false)
-  // Aplica en todas las fases (ej. bitácora 6.10, encuesta 7.6): se muestra
-  // en cada pestaña de /ruta aunque su faseId sea la de su anexo.
   transversal           Boolean  @default(false)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  respuestas          InstrumentoRespuesta[]
+  respuestas InstrumentoRespuesta[]
 
   @@index([activo])
   @@index([faseId])
 }
 
-// Una instancia diligenciada de un Instrumento para un Emprendedor puntual.
-// `datos` guarda { claveCampo: valor } según el camposSchema del instrumento
-// en el momento de guardar — un instrumento editado después no reescribe
-// respuestas ya guardadas.
 model InstrumentoRespuesta {
-  id              String   @id @default(cuid())
-  instrumentoId   String
-  instrumento     Instrumento @relation(fields: [instrumentoId], references: [id])
-  emprendedorId   String
-  emprendedor     Emprendedor @relation(fields: [emprendedorId], references: [id])
-  datos           Json
-  registradoPorId String
-  registradoPor   Usuario  @relation("RespuestaRegistradaPor", fields: [registradoPorId], references: [id])
-  // Revisión por el responsable que asigna el Manual (§5.6). Volver a
-  // editar un registro ya revisado lo regresa a "Pendiente".
-  estadoRevision     String    @default("Pendiente") // Pendiente | Revisado | Devuelto
+  id                 String      @id @default(cuid())
+  instrumentoId      String
+  instrumento        Instrumento @relation(fields: [instrumentoId], references: [id])
+  emprendedorId      String
+  emprendedor        Emprendedor @relation(fields: [emprendedorId], references: [id])
+  datos              Json
+  registradoPorId    String
+  registradoPor      Usuario     @relation("RespuestaRegistradaPor", fields: [registradoPorId], references: [id])
+  estadoRevision     String      @default("Pendiente")
   revisadoPorId      String?
-  revisadoPor        Usuario?  @relation("RespuestaRevisadaPor", fields: [revisadoPorId], references: [id])
+  revisadoPor        Usuario?    @relation("RespuestaRevisadaPor", fields: [revisadoPorId], references: [id])
   revisadoEn         DateTime?
   comentarioRevision String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
   @@index([instrumentoId, emprendedorId])
   @@index([emprendedorId])
   @@index([estadoRevision])
 }
 
-// Regla de avance configurable — generaliza el "formato de tránsito de
-// fase" (6.13 del Manual): qué instrumentos deben tener una
-// InstrumentoRespuesta para habilitar el paso de una fase a otra. Sin
-// reglas activas para una transición, el paso queda libre (no hay gate por
-// defecto) — el Administrador es quien decide exigirlo.
 model ReglaAvance {
   id                 String   @id @default(cuid())
   nombre             String
@@ -243,7 +178,6 @@ model ReglaAvance {
   faseOrigen         Fase?    @relation("ReglaFaseOrigen", fields: [faseOrigenId], references: [id])
   faseDestinoId      String
   faseDestino        Fase     @relation("ReglaFaseDestino", fields: [faseDestinoId], references: [id])
-  // Claves de Instrumento (Instrumento.clave) requeridas para esta transición.
   instrumentosClaves Json
   activa             Boolean  @default(true)
   createdAt          DateTime @default(now())
@@ -253,16 +187,6 @@ model ReglaAvance {
   @@index([activa])
 }
 
-// ---------------------------------------------------------------------------
-// Fase 12 del roadmap — entidades núcleo que exige la ficha del Manual
-// (6.1/6.2): cohorte, sede y equipo emprendedor. No son parte del catálogo
-// configurable (no se "activan/desactivan" como un Instrumento) porque son
-// estructura de datos, no formatos opcionales.
-// ---------------------------------------------------------------------------
-
-// Cohorte de ingreso a la ruta — unidad de reporte que el Manual pide una y
-// otra vez ("por cohorte, sede y asesor") para Vicerrectoría y convocatorias
-// externas (Fondo Emprender, CONPES 4130).
 model Cohorte {
   id          String    @id @default(cuid())
   nombre      String
@@ -278,11 +202,8 @@ model Cohorte {
   @@index([activa])
 }
 
-// Integrante del equipo emprendedor (Manual 6.1 — tabla de integrantes de la
-// ficha de inscripción). Varios por Emprendedor; el Emprendedor sigue siendo
-// el registro maestro (nombre/correo/teléfono del contacto principal).
 model IntegranteEquipo {
-  id                String   @id @default(cuid())
+  id                String      @id @default(cuid())
   emprendedorId     String
   emprendedor       Emprendedor @relation(fields: [emprendedorId], references: [id])
   nombre            String
@@ -292,14 +213,14 @@ model IntegranteEquipo {
   correo            String?
   telefono          String?
   rolEquipo         String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
   @@index([emprendedorId])
 }
 
 model Acompanamiento {
-  id              String   @id @default(cuid())
+  id              String      @id @default(cuid())
   emprendedorId   String
   emprendedor     Emprendedor @relation(fields: [emprendedorId], references: [id])
   docenteId       String?
@@ -308,63 +229,61 @@ model Acompanamiento {
   etapa           String
   diagnostico     String
   recomendaciones String
-  avancePct       Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  avancePct       Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   compromisos Compromiso[]
 
   @@index([emprendedorId, fecha])
 }
 
-// Normalizado como tabla propia (separado de Acompanamiento) para soportar
-// KPI de cumplimiento real — ver §9/§18 de la auditoría.
 model Compromiso {
-  id                String    @id @default(cuid())
+  id                String         @id @default(cuid())
   acompanamientoId  String
   acompanamiento    Acompanamiento @relation(fields: [acompanamientoId], references: [id])
   descripcion       String
   fechaCompromiso   DateTime
   fechaCumplimiento DateTime?
-  estado            String    @default("Pendiente") // Pendiente | En proceso | Cumplido
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  estado            String         @default("Pendiente")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@index([estado])
 }
 
 model Reunion {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   emprendedorId String
   emprendedor   Emprendedor @relation(fields: [emprendedorId], references: [id])
   docenteId     String?
   docente       Usuario?    @relation(fields: [docenteId], references: [id])
   fecha         DateTime
   hora          String
-  estado        String   @default("Programada") // Programada | Reagendada | Cancelada | Realizada
+  estado        String      @default("Programada")
   accion        String
   observaciones String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@index([emprendedorId, fecha])
 }
 
 model AuditLog {
-  id            String    @id @default(cuid())
+  id            String     @id @default(cuid())
   usuarioId     String?
-  usuario       Usuario?  @relation(fields: [usuarioId], references: [id])
+  usuario       Usuario?   @relation(fields: [usuarioId], references: [id])
   rolSnapshot   String?
   entidad       String
   entidadId     String
-  accion        String // CREATE | UPDATE | DELETE | LOGIN
-  origen        String // MANUAL | IMPORTACION_EXCEL | SISTEMA | ADMINISTRACION
+  accion        String
+  origen        String
   valorAnterior Json?
   valorNuevo    Json?
-  resultado     String    @default("EXITO") // EXITO | ERROR
+  resultado     String     @default("EXITO")
   importRunId   String?
   importRun     ImportRun? @relation(fields: [importRunId], references: [id])
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime   @default(now())
 
   @@index([entidad, entidadId])
   @@index([createdAt])
@@ -382,54 +301,43 @@ model ImportRun {
   actualizados       Int      @default(0)
   sinCambios         Int      @default(0)
   errores            Int      @default(0)
-  estado             String   @default("EN_PROGRESO") // EN_PROGRESO | CONFIRMADO | CANCELADO | FALLIDO
+  estado             String   @default("EN_PROGRESO")
   createdAt          DateTime @default(now())
 
-  auditLogs              AuditLog[]
-  emprendedoresAfectados Emprendedor[] @relation("EmprendedoresAfectados")
+  auditLogs                      AuditLog[]
+  emprendedoresAfectados         Emprendedor[] @relation("EmprendedoresAfectados")
   emprendedoresUltimaImportacion Emprendedor[] @relation("UltimaImportacion")
 }
 
-// Evidencia documental que el Emprendedor (o el Docente/Admin en su
-// nombre) sube para sustentar el avance en una etapa. Solo un documento en
-// estado Aprobado para la etapa vigente habilita avanzar a la siguiente
-// (ver editarEmprendedor en src/app/emprendedores/actions.ts).
 model Documento {
-  id                 String    @id @default(cuid())
+  id                 String      @id @default(cuid())
   emprendedorId      String
   emprendedor        Emprendedor @relation(fields: [emprendedorId], references: [id])
-  // Snapshot de la etapa del emprendedor en el momento de subir el
-  // documento — no cambia si el emprendedor avanza después.
   etapa              String
   nombreArchivo      String
   storagePath        String
   mimeType           String
   tamanoBytes        Int
   subidoPorId        String
-  subidoPor          Usuario   @relation("DocumentosSubidos", fields: [subidoPorId], references: [id])
-  estado             String    @default("Pendiente") // Pendiente | Aprobado | Rechazado
+  subidoPor          Usuario     @relation("DocumentosSubidos", fields: [subidoPorId], references: [id])
+  estado             String      @default("Pendiente")
   comentarioRevision String?
   revisadoPorId      String?
-  revisadoPor        Usuario?  @relation("DocumentosRevisados", fields: [revisadoPorId], references: [id])
+  revisadoPor        Usuario?    @relation("DocumentosRevisados", fields: [revisadoPorId], references: [id])
   revisadoEn         DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
   @@index([emprendedorId, etapa])
   @@index([estado])
 }
 
-// Pedido de "olvidé mi contraseña" hecho desde /recuperar-acceso (ruta
-// pública, sin sesión). Un Administrador la atiende desde /usuarios,
-// generando una nueva contraseña temporal — nunca se envía por correo.
 model SolicitudRestablecimiento {
   id            String    @id @default(cuid())
   usuarioId     String
   usuario       Usuario   @relation("SolicitudUsuario", fields: [usuarioId], references: [id])
-  // Snapshot del correo usado al pedirlo, por si el correo de la cuenta
-  // cambia después.
   correo        String
-  estado        String    @default("Pendiente") // Pendiente | Atendida
+  estado        String    @default("Pendiente")
   atendidaPorId String?
   atendidaPor   Usuario?  @relation("SolicitudAtendidaPor", fields: [atendidaPorId], references: [id])
   atendidaEn    DateTime?
@@ -438,9 +346,6 @@ model SolicitudRestablecimiento {
   @@index([estado])
 }
 
-// Rate limiting de login (Fase 10) — un registro por intento, exitoso o
-// no. Sin FK a Usuario a propósito: también se registran intentos con
-// correos que no existen, para frenar fuerza bruta/enumeración igual.
 model LoginAttempt {
   id        String   @id @default(cuid())
   correo    String

@@ -4,8 +4,6 @@ import { getAllAcompanamientos, getEmprendedores } from "@/lib/queries";
 
 export default async function AcompanamientosPage() {
   const session = await auth();
-  // RF13: un Emprendedor solo ve su propio historial — se pide solo lo
-  // suyo a la base, la consulta nunca trae datos de otros.
   const soloPropio = session?.user.rol === "EMPRENDEDOR" ? session.user.emprendedorId ?? undefined : undefined;
 
   const [emprendedores, acompanamientos] = await Promise.all([

@@ -11,8 +11,6 @@ export function CambiarPasswordForm() {
 
   useEffect(() => {
     if (state.success) {
-      // Fuerza un login limpio con la contraseña nueva — el JWT anterior
-      // sigue marcando debeCambiarPassword hasta que se emita uno nuevo.
       signOut({ callbackUrl: "/login" });
     }
   }, [state]);

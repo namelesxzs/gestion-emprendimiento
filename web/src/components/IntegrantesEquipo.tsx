@@ -115,8 +115,6 @@ function IntegranteRow({ integrante, puedeEditar }: { integrante: IntegranteEqui
   );
 }
 
-/** Equipo emprendedor (Manual 6.1) — varios integrantes por emprendimiento,
- * más allá del contacto principal que ya vive en Emprendedor. */
 export function IntegrantesEquipo({
   emprendedorId,
   integrantes,

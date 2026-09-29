@@ -1,23 +1,3 @@
-// Datos de siembra del catálogo configurable — Fase 11 del roadmap (ver
-// auditoría "Manual Ruta de Emprendimiento FUMC", §07/§08, C1-C5).
-//
-// Todo el catálogo que exige el Manual (agosto 2026, MEUNE-FUMC) se siembra
-// de una sola vez: 3 fases, las 5 etapas actuales sin modificar, y los 31
-// instrumentos del Manual: 13 de la tabla de Fase 1, 17 de la tabla de
-// Fase 2, más el "gate de salida de incubación", que solo aparece como
-// anexo 7.5. Nada de esto se "construye cuando se
-// necesite" — el Administrador solo activa o desactiva lo que ya existe
-// desde /configuracion.
-//
-// Los campos de cada instrumento están tomados literalmente de las tablas
-// de diligenciamiento del Manual cuando el documento las especifica (los 13
-// de Fase 1 y los 6 anexos de Fase 2). Las tablas del Manual con filas
-// (integrantes, criterios de rúbrica, riesgos, KPIs) son campos "tabla", y
-// las firmas son campos "firma" sellados por el servidor. Los 12 restantes
-// de Fase 2 solo tienen nombre y propósito en el Manual (son plantillas de
-// documento, no formularios de campos) — se les dio un esquema mínimo
-// razonable, editable después desde /configuracion sin tocar código.
-
 import type { CampoInstrumentoDef } from "../src/lib/catalogo/tipos";
 
 export interface FaseSeed {
@@ -44,9 +24,7 @@ export interface InstrumentoSeed {
   responsableDiligencia: string;
   responsableRevisa: string;
   orden: number;
-  /** Se diligencia varias veces por emprendimiento (ver schema.prisma). */
   permiteMultiples?: boolean;
-  /** Aplica en todas las fases (ver schema.prisma). */
   transversal?: boolean;
   campos: CampoInstrumentoDef[];
 }
@@ -74,10 +52,6 @@ export const FASES_SEED: FaseSeed[] = [
   },
 ];
 
-// Las 5 etapas actuales, sin modificar — misma `clave` que ya vive como
-// string en Emprendedor.etapa. Se dejan sin `faseId` por defecto: la
-// relación entre etapa y fase es una decisión del Administrador, no una
-// regla fija del sistema (ver auditoría §07).
 export const ETAPAS_SEED: EtapaSeed[] = [
   { clave: "Descubrir", nombre: "Descubrir", color: "var(--etapa-descubrir)", orden: 1 },
   { clave: "Incubar", nombre: "Incubar", color: "var(--etapa-incubar)", orden: 2 },
@@ -90,9 +64,6 @@ const SI_NO = ["Sí", "No"];
 const PUNTAJE_1_5 = { tipo: "numero" as const, min: 1, max: 5 };
 
 export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
-  // ------------------------------------------------------------------
-  // Fase 1 — Pre-incubación (Manual §6, 13 instrumentos con tabla propia)
-  // ------------------------------------------------------------------
   {
     clave: "ficha_inscripcion",
     nombre: "Ficha de inscripción / postulación",
@@ -406,10 +377,6 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     ],
   },
 
-  // ------------------------------------------------------------------
-  // Fase 2 — Incubación (Manual §7, 17 instrumentos de la tabla resumen;
-  // 5 de ellos con tabla de diligenciamiento propia en el Manual)
-  // ------------------------------------------------------------------
   {
     clave: "bmc_validado",
     nombre: "Business Model Canvas (versión validada e iterada)",
@@ -807,9 +774,6 @@ export interface ReglaAvanceSeed {
   instrumentosClaves: string[];
 }
 
-// Manual §5.2: el formato de tránsito de fase es el gate obligatorio. La
-// regla exige además que la última evaluación diga "Avanza a incubación" /
-// "Gradúa" y que esté firmada por el asesor (ver src/lib/reglasAvance.ts).
 export const REGLAS_AVANCE_SEED: ReglaAvanceSeed[] = [
   {
     nombre: "Gate pre-incubación → incubación (Manual §5.2, anexo 6.13)",

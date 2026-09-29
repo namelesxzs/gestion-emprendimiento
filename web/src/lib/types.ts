@@ -19,12 +19,8 @@ export interface Emprendedor {
   responsable: string;
   correo: string;
   telefono: string;
-  /** Eje independiente de `etapa` — a qué fase del catálogo configurable
-   * pertenece (ver auditoría §07). Puede no tener fase asignada. */
   faseId: string | null;
   faseNombre: string | null;
-  /** Ficha de caracterización (Manual 6.2) — todos opcionales, se completan
-   * con el tiempo. */
   sede: string | null;
   programaAcademico: string | null;
   facultad: string | null;
@@ -37,7 +33,6 @@ export interface Emprendedor {
   cohorteNombre: string | null;
 }
 
-/** Integrante del equipo emprendedor (Manual 6.1) — varios por Emprendedor. */
 export interface IntegranteEquipo {
   id: string;
   emprendedorId: string;
@@ -59,12 +54,6 @@ export interface Cohorte {
   activa: boolean;
 }
 
-/**
- * Vista aplanada de un Acompanamiento para las pantallas actuales. En la
- * base de datos los compromisos viven en su propia tabla (uno o varios por
- * acompañamiento, ver prisma/schema.prisma); `compromisos`/`estado` aquí
- * resumen esa relación para no tocar los componentes de UI existentes.
- */
 export interface Acompanamiento {
   id: string;
   emprendedorId: string;
@@ -111,9 +100,6 @@ export interface Compromiso {
   estado: EstadoCompromiso;
 }
 
-/** Usuario de personal UIE (Administrador/Docente/Coordinador) tal como se
- * lista y gestiona en /usuarios. Las cuentas EMPRENDEDOR no pasan por este
- * tipo — viven atadas a un registro de Emprendedor, ver otorgarAccesoPortal. */
 export interface UsuarioGestionable {
   id: string;
   nombre: string;

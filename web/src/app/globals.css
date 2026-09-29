@@ -53,8 +53,6 @@ body {
   font-family: var(--font-body), system-ui, sans-serif;
 }
 
-/* Formatos del Manual imprimibles (/formatos/...): al imprimir o guardar
-   como PDF solo sale el formato, sin la navegación de la app. */
 @media print {
   .no-print {
     display: none !important;

@@ -19,10 +19,6 @@ export async function authenticate(_prevState: LoginState, formData: FormData): 
     await signIn("credentials", {
       correo,
       password: formData.get("password"),
-      // redirect: false — el redirect lo hace el cliente con una recarga
-      // completa (ver LoginForm), no Next.js con una transición interna.
-      // De lo contrario el layout raíz no se vuelve a ejecutar en servidor
-      // y la sesión mostrada queda desfasada hasta un F5 manual.
       redirect: false,
     });
     return { success: true };

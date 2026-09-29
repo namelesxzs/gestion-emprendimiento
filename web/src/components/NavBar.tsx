@@ -12,8 +12,6 @@ const LINKS = [
   { href: "/ruta", label: "Ruta" },
 ];
 
-// El Emprendedor no tiene una vista de "todos los emprendedores" (RF13) —
-// esa página redirige al Dashboard, así que ni se le muestra el enlace.
 const LINKS_EMPRENDEDOR = [
   { href: "/", label: "Mi progreso" },
   { href: "/acompanamientos", label: "Mi historial" },
@@ -38,7 +36,6 @@ export function NavBar() {
 
   return (
     <nav className="no-print">
-      {/* Franja superior institucional */}
       <div style={{ backgroundColor: "var(--brand-header)" }}>
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-1.5">
           <span className="text-xs tracking-wide" style={{ color: "#aaaaaa" }}>
@@ -50,7 +47,6 @@ export function NavBar() {
         </div>
       </div>
 
-      {/* Barra principal */}
       <div
         style={{
           backgroundColor: "var(--surface-1)",
@@ -71,9 +67,6 @@ export function NavBar() {
             UIE <span style={{ color: "var(--brand-primary)" }}>· María Cano</span>
           </span>
 
-          {/* En /login no hay sesión ni nada que navegar todavía: no mostrar
-              enlaces ni datos de usuario, para que la barra sea coherente
-              con el estado real (no autenticado). */}
           {!isLoginPage && (
             <div className="flex items-center gap-6">
               {links.map((link) => {

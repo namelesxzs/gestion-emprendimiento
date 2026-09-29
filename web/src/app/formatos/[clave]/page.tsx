@@ -4,11 +4,6 @@ import { prisma } from "@/lib/prisma";
 import type { CampoInstrumentoDef, FirmaValor } from "@/lib/catalogo/tipos";
 import { BotonImprimir } from "@/components/BotonImprimir";
 
-// Un formato del Manual como documento: en blanco (para diligenciar a mano o
-// compartir) o con los datos de un registro (evidencia firmada). Se imprime
-// o se guarda como PDF desde el navegador — la navegación de la app no sale
-// en la impresión (ver `.no-print` en globals.css).
-
 const celda = "border px-3 py-2 align-top";
 const borde = { borderColor: "#9aa5b1" } as const;
 
@@ -124,7 +119,6 @@ export default async function FormatoPage({
       },
     });
     if (!respuesta || respuesta.instrumentoId !== instrumento.id) notFound();
-    // RF13: un Emprendedor solo ve sus propios formatos diligenciados.
     if (session.user.rol === "EMPRENDEDOR" && session.user.emprendedorId !== respuesta.emprendedorId) notFound();
   }
 

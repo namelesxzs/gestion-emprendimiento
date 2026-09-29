@@ -1,13 +1,6 @@
 import { z } from "zod";
 import type { CampoInstrumentoDef, FirmaValor } from "@/lib/catalogo/tipos";
 
-// Metadatos de Fase/Etapa/Instrumento editables desde /configuracion. La
-// estructura de campos de un Instrumento (`camposSchema`) no se edita desde
-// la UI todavía — viene sembrada desde el Manual (ver prisma/catalogoSeed.ts)
-// y se ajusta por código si hace falta; lo que el Administrador controla en
-// esta primera versión es qué está activo, el orden y los datos de
-// presentación (nombre, propósito, momento, responsables, fase asociada).
-
 export const editarFaseSchema = z.object({
   id: z.string().trim().min(1),
   nombre: z.string().trim().min(1, "El nombre es obligatorio"),
@@ -33,7 +26,6 @@ export const editarInstrumentoSchema = z.object({
   responsableRevisa: z.string().trim().optional(),
   faseId: z.string().trim().optional(),
   orden: z.coerce.number().int(),
-  // Manual §5.6: "quién lo revisa y en qué plazo".
   plazoRevisionDias: z.coerce.number().int().min(1, "El plazo debe ser de al menos 1 día").max(365).optional(),
   permiteMultiples: z.boolean().optional(),
   transversal: z.boolean().optional(),
@@ -48,25 +40,17 @@ export const crearReglaAvanceSchema = z.object({
   nombre: z.string().trim().min(1, "El nombre es obligatorio"),
   faseOrigenId: z.string().trim().optional(),
   faseDestinoId: z.string().trim().min(1, "La fase destino es obligatoria"),
-  // Viene del formulario como una lista de claves separadas por coma
-  // (checkboxes serializados) — se valida que haya al menos una.
   instrumentosClaves: z
     .array(z.string().trim().min(1))
     .min(1, "Selecciona al menos un instrumento requerido"),
 });
 export type CrearReglaAvanceInput = z.infer<typeof crearReglaAvanceSchema>;
 
-// --- Motor de formularios genérico (InstrumentoRespuesta) -----------------
-
-/** La forma de un campo es dato (vive en `Instrumento.camposSchema`), no
- * código — por eso el tipo es la misma definición que usa el seed. */
 export type CampoRuntime = CampoInstrumentoDef;
 
 export const guardarRespuestaInstrumentoSchema = z.object({
   instrumentoId: z.string().trim().min(1),
   emprendedorId: z.string().trim().min(1),
-  // Presente al editar un registro puntual de un instrumento que admite
-  // varios (bitácora por sesión, entrevistas, versiones del BMC...).
   respuestaId: z.string().trim().optional(),
 });
 
@@ -76,17 +60,12 @@ export const revisarRespuestaInstrumentoSchema = z.object({
   comentario: z.string().trim().max(2000).optional(),
 });
 
-/** Nombre del control HTML de una celda de tabla. Filas fijas usan la clave
- * de la fila; filas libres, el índice. */
 export function nombreCelda(campo: string, fila: string | number, columna: string) {
   return `${campo}__${fila}__${columna}`;
 }
 
 const vacio = (v: unknown) => v === undefined || v === null || (typeof v === "string" && v.trim() === "");
 
-/** Pasa los valores crudos del FormData a la forma que espera
- * `validarDatosInstrumento` — tablas como arreglo de filas, firmas como
- * { nombre, confirmado }. */
 export function extraerDatosFormulario(campos: CampoRuntime[], formData: FormData): Record<string, unknown> {
   const datos: Record<string, unknown> = {};
   for (const campo of campos) {
@@ -151,12 +130,6 @@ function validarEscalar(campo: CampoRuntime, valor: unknown, etiqueta: string): 
   return { ok: true, valor: String(texto) };
 }
 
-/** Valida los valores capturados en un formulario contra el `camposSchema`
- * real del instrumento (los campos requeridos deben venir con contenido).
- * No se puede tipar de forma estática porque el esquema es dato, no código
- * — es el corazón del motor de formularios genérico (ver auditoría C3).
- * Las firmas se devuelven tal cual: sellarlas exige la sesión, y eso lo
- * hace la acción del servidor (ver `sellarFirmas`). */
 export function validarDatosInstrumento(
   campos: CampoRuntime[],
   datos: Record<string, unknown>
@@ -189,8 +162,6 @@ export function validarDatosInstrumento(
         const fila: Record<string, string | number> = filaFija ? { fila: filaFija.clave } : {};
         for (const col of columnas) {
           const etiqueta = `${campo.etiqueta} — ${filaFija ? `${filaFija.etiqueta}: ` : ""}${col.etiqueta}`;
-          // En filas fijas, una columna requerida solo se exige si la tabla
-          // completa es requerida (ej. los puntajes de la rúbrica).
           const exigir = Boolean(col.requerido && (filaFija ? campo.requerido : true));
           const r = validarEscalar({ ...col, requerido: exigir }, cruda[col.clave], etiqueta);
           if (!r.ok) return r;
@@ -210,7 +181,6 @@ export function validarDatosInstrumento(
     limpio[campo.clave] = r.valor;
   }
 
-  // Totales: se calculan aquí (servidor), nunca se confía en el cliente.
   for (const campo of campos) {
     if (campo.tipo !== "total" || !campo.sumaDe) continue;
     const { tabla, columna } = campo.sumaDe;
@@ -221,19 +191,12 @@ export function validarDatosInstrumento(
   return { ok: true, datos: limpio };
 }
 
-/** Rol del usuario → puede poner esta firma. El Administrador y el Docente
- * (asesor) firman como asesor; la firma del emprendedor la pone el propio
- * Emprendedor o el personal de la ruta transcribiendo una firma física. */
 export function puedeFirmar(rol: string, firmante: CampoRuntime["firmante"]): boolean {
   if (rol === "ADMINISTRADOR" || rol === "DOCENTE") return true;
   if (rol === "EMPRENDEDOR") return firmante === "emprendedor";
   return false;
 }
 
-/** Sella las firmas con el usuario y la fecha del servidor. Una firma que el
- * usuario actual no puede poner (ej. la del asesor, vista por el
- * Emprendedor) conserva lo que ya había. Una firma sin cambios conserva su
- * sello original — editar otro campo no re-firma a nombre de otra persona. */
 export function sellarFirmas(
   campos: CampoRuntime[],
   datos: Record<string, unknown>,

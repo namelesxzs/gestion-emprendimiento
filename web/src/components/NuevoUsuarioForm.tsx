@@ -19,10 +19,6 @@ export function NuevoUsuarioForm({ onDone }: { onDone: () => void }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [rol, setRol] = useState<string>("DOCENTE");
 
-  // form.reset() nativo no toca el <select> de rol porque es controlado
-  // (value/onChange) — se resetea aparte, ajustado durante el render
-  // comparando contra el último estado de acción visto, no en un efecto
-  // (mismo patrón que ReunionRow, evita el setState directo en useEffect).
   const [ultimoEstadoVisto, setUltimoEstadoVisto] = useState(state);
   if (state !== ultimoEstadoVisto) {
     setUltimoEstadoVisto(state);

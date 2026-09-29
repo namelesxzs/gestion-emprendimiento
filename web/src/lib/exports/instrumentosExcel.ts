@@ -1,11 +1,6 @@
 import ExcelJS from "exceljs";
 import type { CampoInstrumentoDef, FirmaValor } from "@/lib/catalogo/tipos";
 
-// Manual §5.5: "centralice las respuestas en una sola base de datos por
-// cohorte, sede y asesor, facilitando el reporte de indicadores ante la
-// Vicerrectoría y ante las convocatorias externas". Una hoja por formato,
-// una fila por registro diligenciado, con cohorte/sede/asesor al frente.
-
 export interface InstrumentoExport {
   clave: string;
   nombre: string;
@@ -27,8 +22,6 @@ export interface InstrumentoExport {
 
 const FIJAS = ["Emprendimiento", "Emprendedor", "Cohorte", "Sede", "Asesor", "Fase", "Registrado por", "Actualizado", "Revisión"];
 
-/** Una celda de Excel por campo: las tablas del Manual se aplanan a texto
- * (una fila por línea) y las firmas muestran quién y cuándo. */
 export function valorCelda(campo: CampoInstrumentoDef, valor: unknown): string | number {
   if (valor === undefined || valor === null) return "";
   if (campo.tipo === "firma") {
@@ -67,7 +60,6 @@ export async function generarExcelInstrumentos(instrumentos: InstrumentoExport[]
   for (const inst of instrumentos) {
     resumen.addRow({ origen: inst.origenManual ?? "", nombre: inst.nombre, registros: inst.respuestas.length });
 
-    // Nombre de hoja: máx. 31 caracteres, sin caracteres prohibidos, único.
     let nombreHoja = `${inst.origenManual ?? ""} ${inst.nombre}`.replace(/[\\/*?:[\]]/g, "-").trim().slice(0, 31);
     for (let n = 2; usados.has(nombreHoja); n++) nombreHoja = `${nombreHoja.slice(0, 28)} ${n}`;
     usados.add(nombreHoja);

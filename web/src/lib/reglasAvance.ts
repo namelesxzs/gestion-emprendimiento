@@ -1,13 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { CampoInstrumentoDef } from "@/lib/catalogo/tipos";
 
-/**
- * Qué le falta a la última respuesta de un instrumento-gate para habilitar el
- * avance (Manual §5.2: "diligenciado y firmado por el asesor"). Se evalúa
- * contra el propio `camposSchema`: una selección con `valorHabilitaAvance`
- * debe tener ese valor, y toda firma requerida debe estar puesta. Devuelve
- * null si la respuesta habilita el avance.
- */
 export function motivoGateNoCumplido(
   campos: CampoInstrumentoDef[],
   datos: Record<string, unknown>
@@ -25,13 +18,6 @@ export function motivoGateNoCumplido(
   return null;
 }
 
-/**
- * Verifica si un emprendedor puede pasar de `faseOrigenId` a `faseDestinoId`
- * según las reglas de avance configuradas (ver auditoría §07/§08, C4 — motor
- * de catálogo). Sin reglas activas para esa transición, el paso queda libre.
- * Con una regla, cada instrumento exigido debe tener una respuesta, y la más
- * reciente debe cumplir el gate (ver `motivoGateNoCumplido`).
- */
 export async function verificarReglaAvance(
   emprendedorId: string,
   faseOrigenId: string | null,

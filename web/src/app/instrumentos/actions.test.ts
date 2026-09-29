@@ -23,8 +23,6 @@ async function crearEmprendedor(correo = `emp-${Math.random()}@test.com`) {
   });
 }
 
-/** Instrumento con campos mínimos y un `responsableDiligencia` a elegir —
- * refleja cómo el Manual lo describe en prosa, no con un enum cerrado. */
 async function crearInstrumento(responsableDiligencia: string) {
   return prisma.instrumento.create({
     data: {
@@ -37,8 +35,6 @@ async function crearInstrumento(responsableDiligencia: string) {
   });
 }
 
-/** El registradoPorId de InstrumentoRespuesta es FK a Usuario — la cuenta de
- * portal debe existir de verdad, no un id de mentira. */
 async function crearCuentaPortal(emprendedorId: string) {
   const cuenta = await prisma.usuario.create({
     data: {

@@ -22,9 +22,6 @@ import { getEtapaDistribution, getKpis, getProximasReuniones, getUltimoAvance } 
 export default async function Home() {
   const session = await auth();
 
-  // RF13: un Emprendedor solo consulta su propio progreso, nunca el
-  // panel institucional completo — se pide solo su propio dato, no se
-  // filtra después de traer todo.
   if (session?.user.rol === "EMPRENDEDOR" && session.user.emprendedorId) {
     const [emprendedores, acompanamientos, reuniones, documentos, instrumentos, respuestasInstrumento] =
       await Promise.all([
@@ -69,9 +66,6 @@ export default async function Home() {
     );
   }
 
-  // Fase 6: Coordinador y Administrador supervisan la institución, no la
-  // operación día a día — reciben el panel de indicadores puro en vez del
-  // dashboard operativo (tabla de emprendedores + próximas reuniones).
   if (session?.user.rol === "COORDINADOR" || session?.user.rol === "ADMINISTRADOR") {
     const [emprendedores, acompanamientos, reuniones, compromisos, emprendedoresPorSede, emprendedoresPorCohorte] =
       await Promise.all([

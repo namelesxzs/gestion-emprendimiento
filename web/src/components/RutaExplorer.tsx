@@ -5,16 +5,9 @@ import Link from "next/link";
 import type { FaseRow, InstrumentoRow } from "@/lib/queries";
 import { Card } from "./Card";
 
-/** Comentario de la profesora dentro del Manual, anclado a "Fase 1 —
- * Pre-incubación": "Fases que deben quedar en pestañas separadas del
- * aplicativo". Esta es esa pantalla — cada fase activa del catálogo
- * configurable es una pestaña, con el catálogo de instrumentos que le
- * corresponde (ver auditoría §07/§08). */
 export function RutaExplorer({ fases, instrumentos }: { fases: FaseRow[]; instrumentos: InstrumentoRow[] }) {
   const [faseId, setFaseId] = useState<string | null>(fases[0]?.id ?? null);
   const faseActiva = fases.find((f) => f.id === faseId) ?? null;
-  // Los transversales (bitácora 6.10, encuesta 7.6) aplican en todas las
-  // fases, así su anexo esté en una sola.
   const instrumentosFase = instrumentos.filter((i) => i.faseId === faseId || i.transversal);
 
   if (fases.length === 0) {

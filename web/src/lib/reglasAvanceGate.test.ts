@@ -4,9 +4,6 @@ import { limpiarDb } from "@/test/db";
 import { verificarReglaAvance } from "./reglasAvance";
 import { INSTRUMENTOS_SEED, REGLAS_AVANCE_SEED } from "../../prisma/catalogoSeed";
 
-// Manual §5.2: "ningún emprendimiento pase de pre-incubación a incubación sin
-// este formato diligenciado y firmado por el asesor".
-
 beforeEach(limpiarDb);
 afterAll(async () => {
   await prisma.$disconnect();

@@ -17,8 +17,6 @@ export async function solicitarRestablecimiento(
     return { error: parsed.error.issues[0]?.message ?? "Correo inválido" };
   }
 
-  // Ruta pública, sin sesión — nunca se revela si el correo existe o no,
-  // ni si ya hay una solicitud pendiente: siempre se responde success.
   const usuario = await prisma.usuario.findUnique({ where: { correo: parsed.data.correo } });
   if (usuario && usuario.activo) {
     const yaPendiente = await prisma.solicitudRestablecimiento.findFirst({

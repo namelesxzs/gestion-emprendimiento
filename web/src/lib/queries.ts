@@ -20,11 +20,6 @@ function fmtDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/**
- * `soloEmprendedorId` acota la consulta a un único emprendedor — se usa
- * para el rol EMPRENDEDOR, que nunca debe recibir datos de otros (RF13).
- * El filtro se aplica en la consulta misma, no después de traer todo.
- */
 export async function getEmprendedores(soloEmprendedorId?: string): Promise<Emprendedor[]> {
   const rows = await prisma.emprendedor.findMany({
     where: soloEmprendedorId ? { id: soloEmprendedorId } : undefined,
@@ -103,9 +98,6 @@ export async function getAllReuniones(soloEmprendedorId?: string): Promise<Reuni
   }));
 }
 
-/** Vista plana de Compromiso (sin pasar por Acompanamiento) — la usan los
- * KPIs institucionales de cumplimiento, que necesitan cada compromiso por
- * separado y no solo el primero, como sí hace getAllAcompanamientos. */
 export async function getAllCompromisos(): Promise<Compromiso[]> {
   const rows = await prisma.compromiso.findMany({
     orderBy: { fechaCompromiso: "desc" },
@@ -121,11 +113,6 @@ export async function getAllCompromisos(): Promise<Compromiso[]> {
   }));
 }
 
-/**
- * `soloEmprendedorId` acota la consulta a un único emprendedor — mismo
- * patrón que getEmprendedores/getAllAcompanamientos, para que el rol
- * EMPRENDEDOR nunca reciba documentos de otros (RF13).
- */
 export async function getDocumentosByEmprendedor(soloEmprendedorId?: string): Promise<Documento[]> {
   const rows = await prisma.documento.findMany({
     where: soloEmprendedorId ? { emprendedorId: soloEmprendedorId } : undefined,
@@ -173,8 +160,6 @@ export interface SolicitudRestablecimientoRow {
   createdAt: string;
 }
 
-/** Solicitudes de "olvidé mi contraseña" (ver /recuperar-acceso) que aún no
- * ha atendido ningún Administrador. */
 export async function getSolicitudesRestablecimiento(): Promise<SolicitudRestablecimientoRow[]> {
   const rows = await prisma.solicitudRestablecimiento.findMany({
     where: { estado: "Pendiente" },
@@ -191,8 +176,6 @@ export async function getSolicitudesRestablecimiento(): Promise<SolicitudRestabl
   }));
 }
 
-/** IDs de Emprendedor que ya tienen cuenta de portal — para no ofrecer
- * "Dar acceso al portal" dos veces sobre el mismo registro. */
 export async function getEmprendedorIdsConPortal(): Promise<Set<string>> {
   const rows = await prisma.usuario.findMany({
     where: { rol: "EMPRENDEDOR", emprendedorId: { not: null } },
@@ -207,9 +190,6 @@ export interface EmprendedoresPorSede {
   activos: number;
 }
 
-/** Agregación por sede del Docente responsable — no viaja por el tipo
- * Emprendedor (que no expone sede) porque solo la usa el panel de
- * indicadores institucionales. */
 export async function getEmprendedoresPorSede(): Promise<EmprendedoresPorSede[]> {
   const rows = await prisma.emprendedor.findMany({
     select: { estado: true, responsable: { select: { sede: true } } },
@@ -303,7 +283,6 @@ export async function getUsuariosBasico(): Promise<{ id: string; nombre: string 
   return prisma.usuario.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: "asc" } });
 }
 
-// --- Catálogo configurable (Fase 11 — ver auditoría §07/§08) --------------
 
 export interface FaseRow {
   id: string;
@@ -314,9 +293,6 @@ export interface FaseRow {
   activa: boolean;
 }
 
-/** `soloActivas` filtra para las vistas de consumo (p. ej. /ruta o los
- * selectores de un formulario) — la pantalla de configuración del
- * Administrador siempre pide todas, activas e inactivas. */
 export async function getFases(soloActivas = false): Promise<FaseRow[]> {
   const rows = await prisma.fase.findMany({
     where: soloActivas ? { activa: true } : undefined,
@@ -450,7 +426,6 @@ export interface RespuestaInstrumentoRow {
   revisadoPorNombre: string | null;
   revisadoEn: string | null;
   comentarioRevision: string | null;
-  /** Pendiente de revisión más allá del plazo del instrumento (§5.6). */
   revisionVencida: boolean;
 }
 
@@ -458,10 +433,6 @@ export interface RespuestaInstrumentoRowConEmprendedor extends RespuestaInstrume
   emprendedorId: string;
 }
 
-/** Sin `soloEmprendedorId` trae las respuestas de todos — mismo patrón que
- * getAllAcompanamientos/getDocumentosByEmprendedor, para poblar la lista
- * completa que luego se filtra en el cliente al seleccionar un
- * emprendedor. */
 export async function getRespuestasInstrumento(
   soloEmprendedorId?: string
 ): Promise<RespuestaInstrumentoRowConEmprendedor[]> {
@@ -496,10 +467,7 @@ export async function getRespuestasInstrumento(
   });
 }
 
-// --- Fase 12: cohortes y equipo emprendedor --------------------------------
 
-/** `soloActivas` es para selectores de formulario — la pantalla de
- * configuración siempre pide todas, activas e inactivas. */
 export async function getCohortes(soloActivas = false): Promise<Cohorte[]> {
   const rows = await prisma.cohorte.findMany({
     where: soloActivas ? { activa: true } : undefined,
@@ -521,8 +489,6 @@ export interface EmprendedoresPorCohorte {
   activos: number;
 }
 
-/** Agregación para reportería externa (Manual §5.2/5.5: "por cohorte, sede
- * y asesor") — mismo patrón que getEmprendedoresPorSede. */
 export async function getEmprendedoresPorCohorte(): Promise<EmprendedoresPorCohorte[]> {
   const rows = await prisma.emprendedor.findMany({
     select: { estado: true, cohorte: { select: { nombre: true } } },
@@ -540,9 +506,6 @@ export async function getEmprendedoresPorCohorte(): Promise<EmprendedoresPorCoho
   return Array.from(mapa.values()).sort((a, b) => b.total - a.total);
 }
 
-/** Sin `soloEmprendedorId` trae los integrantes de todos — mismo patrón que
- * el resto de getAllX, para poblar la lista completa y filtrarla en el
- * cliente al seleccionar un emprendedor. */
 export async function getIntegrantesEquipo(soloEmprendedorId?: string): Promise<IntegranteEquipo[]> {
   const rows = await prisma.integranteEquipo.findMany({
     where: soloEmprendedorId ? { emprendedorId: soloEmprendedorId } : undefined,

@@ -1,19 +1,9 @@
-// Siembra idempotente del catálogo configurable (Fase 11 — ver auditoría
-// §07/§08). A diferencia del resto de `seed.ts` (datos de ejemplo que se
-// borran y recrean en cada corrida), el catálogo es configuración: se
-// siembra con `upsert` por `clave` para no perder lo que el Administrador
-// ya haya activado/desactivado o editado desde /configuracion.
-
 import { prisma } from "../src/lib/prisma";
+import type { Prisma } from "../src/generated/prisma/client";
 import { FASES_SEED, ETAPAS_SEED, INSTRUMENTOS_SEED, REGLAS_AVANCE_SEED } from "./catalogoSeed";
 
-// Prisma tipa los campos Json contra InputJsonObject (exige índice de
-// string) — CampoInstrumentoDef[] es estructuralmente JSON válido pero no
-// calza con ese tipo nominal. Un roundtrip por JSON lo deja como `any`, que
-// Prisma sí acepta para un campo Json.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function aJson(valor: unknown): any {
-  return JSON.parse(JSON.stringify(valor));
+function aJson(valor: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(valor)) as Prisma.InputJsonValue;
 }
 
 export async function seedCatalogo() {
@@ -71,15 +61,9 @@ export async function seedCatalogo() {
     });
   }
 
-  // Reglas de avance del Manual §5.2 ("ningún emprendimiento pase de
-  // pre-incubación a incubación sin este formato diligenciado y firmado por
-  // el asesor"). Solo se crean si no existe ya una regla para la misma
-  // transición: si el Administrador la desactivó o la cambió, se respeta.
   for (const r of REGLAS_AVANCE_SEED) {
     const faseOrigenId = faseIdPorClave.get(r.faseOrigenClave)!;
     const faseDestinoId = faseIdPorClave.get(r.faseDestinoClave)!;
-    // Una regla "desde cualquier fase" (faseOrigenId null) hacia el mismo
-    // destino también cubre la transición.
     const existente = await prisma.reglaAvance.findFirst({
       where: { faseDestinoId, OR: [{ faseOrigenId }, { faseOrigenId: null }] },
     });
@@ -94,8 +78,6 @@ export async function seedCatalogo() {
   );
 }
 
-// Permite correrlo suelto: `tsx prisma/seedCatalogo.ts` — útil si algún día
-// se necesita re-sembrar el catálogo sin tocar los datos de ejemplo.
 if (require.main === module) {
   seedCatalogo()
     .catch((e) => {

@@ -2,10 +2,6 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { limpiarDb } from "@/test/db";
 
-// Fidelidad al Manual de Formatos y Metodologías FUMC: registros múltiples
-// (§5.1/§5.3), tablas con puntaje 1-5 y total (anexos 6.3/7.4), firmas
-// (6.11-6.13, 7.5) y revisión por responsable con plazo (§5.6).
-
 const mockAuth = vi.fn();
 vi.mock("@/auth", () => ({ auth: () => mockAuth() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));

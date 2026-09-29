@@ -20,8 +20,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const usuario = await prisma.usuario.findUnique({ where: { correo } });
         if (!usuario || !usuario.activo) {
-          // Se registra igual con correo inexistente/inactivo — si no, un
-          // ataque de enumeración quedaría fuera del límite de intentos.
           await registrarIntentoLogin(correo, false);
           return null;
         }

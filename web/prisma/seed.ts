@@ -6,8 +6,6 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/prisma";
 import { seedCatalogo } from "./seedCatalogo";
 
-// PDF mínimo (sin xref real, pero suficiente para que el enlace de
-// descarga de /api/documentos/[id]/archivo sirva un archivo válido).
 const PDF_DEMO = Buffer.from(
   "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 150]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF",
   "utf-8"
@@ -82,9 +80,6 @@ function hh(hora: number): string {
 const DEV_PASSWORD = "uie-dev-2026";
 
 async function main() {
-  // El catálogo (fases/etapas/instrumentos) es configuración, no dato de
-  // ejemplo: se siembra con upsert, aparte del resto que sí se borra y
-  // recrea abajo.
   await seedCatalogo();
 
   const passwordHash = await bcrypt.hash(DEV_PASSWORD, 10);
@@ -95,10 +90,6 @@ async function main() {
   await prisma.acompanamiento.deleteMany();
   await prisma.reunion.deleteMany();
   await prisma.documento.deleteMany();
-  // InstrumentoRespuesta e IntegranteEquipo cuelgan de un Emprendedor
-  // puntual — se borran junto con los emprendedores de ejemplo. ReglaAvance
-  // y Cohorte NO se tocan aquí: son configuración real del Administrador,
-  // no datos de ejemplo (mismo criterio que el catálogo, ver seedCatalogo).
   await prisma.instrumentoRespuesta.deleteMany();
   await prisma.solicitudRestablecimiento.deleteMany();
   await prisma.importRun.deleteMany();
@@ -107,10 +98,10 @@ async function main() {
   await prisma.usuario.deleteMany();
 
   console.log("Creando usuarios...");
-  const admin = await prisma.usuario.create({
+  await prisma.usuario.create({
     data: { nombre: "Admin UIE", correo: "admin@uie.local", passwordHash, rol: "ADMINISTRADOR" },
   });
-  const coordinador = await prisma.usuario.create({
+  await prisma.usuario.create({
     data: { nombre: "Coordinador UIE", correo: "coordinador@uie.local", passwordHash, rol: "COORDINADOR" },
   });
 
@@ -208,8 +199,6 @@ async function main() {
       });
     }
 
-    // El primer emprendedor (Ana Gómez) recibe una cuenta de portal propia,
-    // para poder probar el flujo de rol EMPRENDEDOR de extremo a extremo.
     if (index === 0) {
       const cuentaPortal = await prisma.usuario.create({
         data: {
@@ -221,8 +210,6 @@ async function main() {
         },
       });
 
-      // Documentos de soporte de ejemplo, en distintos estados, para
-      // demostrar el flujo de sustento documental por etapa.
       const docenteA = docentesPorNombre.get("Docente A")!;
 
       const rutaAprobado = await guardarDocumentoDemo(emprendedor.id, "plan-descubrimiento.pdf");

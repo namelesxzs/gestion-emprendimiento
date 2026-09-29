@@ -4,8 +4,6 @@ import { registrarIntentoLogin } from "@/lib/loginRateLimit";
 
 const mockSignIn = vi.fn();
 vi.mock("@/auth", () => ({ signIn: (...args: unknown[]) => mockSignIn(...args) }));
-// El paquete real "next-auth" importa "next/server", que no resuelve fuera
-// del runtime de Next — se stubea solo la clase que actions.ts usa (AuthError).
 vi.mock("next-auth", () => ({ AuthError: class AuthError extends Error {} }));
 
 const { authenticate } = await import("./actions");

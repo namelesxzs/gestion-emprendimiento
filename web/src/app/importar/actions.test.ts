@@ -3,13 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { limpiarDb } from "@/test/db";
 import { construirExcelEmprendedores } from "@/test/xlsx";
 
-// vi.mock se hoistea sobre los imports; las variables que empiezan con
-// "mock" están exentas de esa restricción, así que mockAuth puede
-// referenciarse dentro de la factory sin problema.
 const mockAuth = vi.fn();
 vi.mock("@/auth", () => ({ auth: () => mockAuth() }));
-// revalidatePath solo funciona dentro de una request real de Next.js — no
-// es parte de la lógica bajo prueba aquí, así que se anula.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 const { confirmarImportacion } = await import("./actions");

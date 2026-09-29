@@ -10,7 +10,7 @@ export const TIPOS_MIME_PERMITIDOS = [
   "image/jpeg",
 ] as const;
 
-export const TAMANO_MAX_BYTES = 10 * 1024 * 1024; // 10MB
+export const TAMANO_MAX_BYTES = 10 * 1024 * 1024;
 
 export const revisarDocumentoSchema = z
   .object({

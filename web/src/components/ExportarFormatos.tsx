@@ -1,8 +1,5 @@
 import { Card } from "./Card";
 
-/** Manual §5.5: todas las respuestas en una sola base por cohorte, sede y
- * asesor. Formulario GET simple hacia /api/exportar/instrumentos — sin
- * filtros exporta todo. */
 export function ExportarFormatos({
   cohortes,
   sedes,

@@ -4,8 +4,6 @@ import { requireRole, AuthzError } from "@/lib/authz";
 import type { CampoInstrumentoDef } from "@/lib/catalogo/tipos";
 import { generarExcelInstrumentos } from "@/lib/exports/instrumentosExcel";
 
-// Exporta todos los formatos del Manual diligenciados (Manual §5.5), con
-// filtros opcionales por cohorte, sede y asesor: ?cohorteId=&sede=&asesorId=
 export async function GET(request: NextRequest) {
   try {
     await requireRole("ADMINISTRADOR", "DOCENTE", "COORDINADOR");

@@ -5,7 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole, requireSession, requireOwnEmprendedor, AuthzError } from "@/lib/authz";
+import { requireRole, requireOwnEmprendedor, AuthzError } from "@/lib/authz";
 import { registrarAuditoria } from "@/lib/audit";
 import {
   revisarDocumentoSchema,
@@ -13,8 +13,6 @@ import {
   TIPOS_MIME_PERMITIDOS,
 } from "@/lib/validation/documento";
 
-// Fuera de /public a propósito — solo se sirve vía /api/documentos/[id]/archivo,
-// que valida autorización antes de leer el archivo.
 const STORAGE_ROOT = path.join(process.cwd(), "storage", "documentos");
 
 export type SubirDocumentoState = { error?: string; success?: boolean };
@@ -25,7 +23,6 @@ export async function subirDocumento(
 ): Promise<SubirDocumentoState> {
   let session;
   try {
-    // Sube el propio Emprendedor, o el Docente/Admin en su nombre.
     session = await requireRole("ADMINISTRADOR", "DOCENTE", "EMPRENDEDOR");
   } catch (error) {
     if (error instanceof AuthzError) return { error: error.message };
@@ -109,7 +106,6 @@ export async function revisarDocumento(
 ): Promise<RevisarDocumentoState> {
   let session;
   try {
-    // Solo el personal UIE decide si un documento sustenta el avance.
     session = await requireRole("ADMINISTRADOR", "DOCENTE");
   } catch (error) {
     if (error instanceof AuthzError) return { error: error.message };

@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
 
   const [emprendedores, acompanamientos] = await Promise.all([getEmprendedores(), getAllAcompanamientos()]);
 
-  // Sin filtros en la URL = exportar todo, igual que la tabla sin filtrar.
   const filtrados = emprendedores.filter(
     (e) => (!etapas || etapas.includes(e.etapa)) && (!estados || estados.includes(e.estado))
   );

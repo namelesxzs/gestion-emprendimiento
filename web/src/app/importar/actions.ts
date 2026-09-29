@@ -15,7 +15,6 @@ export type AnalizarState = {
 
 export async function analizarArchivo(_prevState: AnalizarState, formData: FormData): Promise<AnalizarState> {
   try {
-    // Importar Excel también queda restringido a Administrador/Docente.
     await requireRole("ADMINISTRADOR", "DOCENTE");
   } catch (error) {
     if (error instanceof AuthzError) return { error: error.message };
@@ -74,10 +73,6 @@ export async function confirmarImportacion(
   const buffer = Buffer.from(archivoBase64, "base64");
   const archivoHash = crypto.createHash("sha256").update(buffer).digest("hex");
 
-  // Se recalcula el diff contra el estado ACTUAL de la BD justo antes de
-  // aplicar (no se confía en lo que el cliente vio en el preview) — así la
-  // importación es idempotente incluso si la BD cambió entre el preview y
-  // la confirmación, o si el usuario reenvía el mismo archivo dos veces.
   const resultado = await analizarExcel(buffer);
   if (!resultado.ok) {
     return { error: resultado.errorGeneral ?? "No se pudo procesar el archivo." };
@@ -127,8 +122,6 @@ export async function confirmarImportacion(
             },
           });
         } else if (fila.estado === "actualizado" && fila.datos && fila.emprendedorId) {
-          // Nunca se toca el historial (acompañamientos/compromisos/
-          // reuniones) desde el importador — solo campos maestros.
           const actualizado = await tx.emprendedor.update({
             where: { id: fila.emprendedorId },
             data: {
@@ -156,9 +149,6 @@ export async function confirmarImportacion(
             },
           });
         }
-        // "sin_cambios", "error" y "duplicado_en_archivo" no generan
-        // ninguna escritura — RF: nunca eliminar/sobrescribir por ausencia
-        // o error, y errores de fila no bloquean el resto del archivo.
       }
     });
 
