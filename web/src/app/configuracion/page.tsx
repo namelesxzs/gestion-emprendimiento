@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getEtapasCatalogo, getFases, getInstrumentos, getReglasAvance } from "@/lib/queries";
+import { getCohortes, getEtapasCatalogo, getFases, getInstrumentos, getReglasAvance } from "@/lib/queries";
 import { ConfiguracionExplorer } from "@/components/ConfiguracionExplorer";
 
 export default async function ConfiguracionPage() {
@@ -9,11 +9,12 @@ export default async function ConfiguracionPage() {
     redirect("/");
   }
 
-  const [fases, etapas, instrumentos, reglas] = await Promise.all([
+  const [fases, etapas, instrumentos, reglas, cohortes] = await Promise.all([
     getFases(),
     getEtapasCatalogo(),
     getInstrumentos(),
     getReglasAvance(),
+    getCohortes(),
   ]);
 
   return (
@@ -26,12 +27,12 @@ export default async function ConfiguracionPage() {
           Configuración de la Ruta
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Catálogo configurable del Manual FUMC (fases, etapas e instrumentos) — activa, desactiva y ajusta sin
-          necesitar un cambio de código. Ver <code>/ruta</code> para lo que ven los demás roles.
+          Catálogo configurable del Manual FUMC (fases, etapas, instrumentos y cohortes) — activa, desactiva y
+          ajusta sin necesitar un cambio de código. Ver <code>/ruta</code> para lo que ven los demás roles.
         </p>
       </header>
 
-      <ConfiguracionExplorer fases={fases} etapas={etapas} instrumentos={instrumentos} reglas={reglas} />
+      <ConfiguracionExplorer fases={fases} etapas={etapas} instrumentos={instrumentos} reglas={reglas} cohortes={cohortes} />
     </main>
   );
 }

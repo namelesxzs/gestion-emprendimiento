@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emprendedorCreateSchema, emprendedorUpdateSchema } from "./emprendedor";
+import { cohorteSchema, emprendedorCreateSchema, emprendedorUpdateSchema, integranteEquipoSchema } from "./emprendedor";
 
 const base = {
   nombre: "Ana Gómez",
@@ -31,6 +31,53 @@ describe("emprendedorCreateSchema", () => {
 
   it("rechaza nombre vacío o solo espacios", () => {
     const r = emprendedorCreateSchema.safeParse({ ...base, nombre: "   " });
+    expect(r.success).toBe(false);
+  });
+
+  it("la ficha de caracterización (Manual 6.2) es opcional", () => {
+    const r = emprendedorCreateSchema.safeParse(base);
+    expect(r.success).toBe(true);
+  });
+
+  it("acepta la ficha de caracterización completa cuando viene con datos válidos", () => {
+    const r = emprendedorCreateSchema.safeParse({
+      ...base,
+      sede: "Medellín",
+      tipoInnovacion: "Base tecnológica",
+      madurez: "Prototipo",
+      canalPostulacion: "Feria",
+      problema: "Falta de reciclaje en el campus",
+      descripcionIdea: "Bolsas reutilizables a partir de residuos textiles",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rechaza un tipo de innovación fuera del catálogo del Manual", () => {
+    const r = emprendedorCreateSchema.safeParse({ ...base, tipoInnovacion: "Otro" });
+    expect(r.success).toBe(false);
+  });
+});
+
+describe("cohorteSchema", () => {
+  it("acepta solo el nombre (sede y fechas opcionales)", () => {
+    const r = cohorteSchema.safeParse({ nombre: "Cohorte 2026-2" });
+    expect(r.success).toBe(true);
+  });
+
+  it("rechaza nombre vacío", () => {
+    const r = cohorteSchema.safeParse({ nombre: "" });
+    expect(r.success).toBe(false);
+  });
+});
+
+describe("integranteEquipoSchema", () => {
+  it("exige emprendedorId y nombre", () => {
+    const r = integranteEquipoSchema.safeParse({ emprendedorId: "e1", nombre: "Juan Gómez" });
+    expect(r.success).toBe(true);
+  });
+
+  it("rechaza sin emprendedorId", () => {
+    const r = integranteEquipoSchema.safeParse({ nombre: "Juan Gómez" });
     expect(r.success).toBe(false);
   });
 });

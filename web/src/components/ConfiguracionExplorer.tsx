@@ -1,29 +1,35 @@
 "use client";
 
 import { useState } from "react";
+import type { Cohorte } from "@/lib/types";
 import type { EtapaRow, FaseRow, InstrumentoRow, ReglaAvanceRow } from "@/lib/queries";
 import { FasesTab } from "./configuracion/FasesTab";
 import { EtapasTab } from "./configuracion/EtapasTab";
 import { InstrumentosTab } from "./configuracion/InstrumentosTab";
 import { ReglasAvanceTab } from "./configuracion/ReglasAvanceTab";
+import { CohortesTab } from "./configuracion/CohortesTab";
 
-const TABS = ["Fases", "Etapas", "Instrumentos", "Reglas de avance"] as const;
+const TABS = ["Fases", "Etapas", "Instrumentos", "Reglas de avance", "Cohortes"] as const;
 type Tab = (typeof TABS)[number];
 
 /** El catálogo configurable en sí (ver auditoría §07/§08, C1) — a
  * diferencia de /ruta (las fases activas como pestañas, para todos los
  * roles), esta pantalla es donde el Administrador activa, desactiva y
- * ajusta lo que /ruta y los formularios de captura terminan mostrando. */
+ * ajusta lo que /ruta y los formularios de captura terminan mostrando.
+ * Cohortes (Fase 12, C6) vive aquí también — es config del Administrador,
+ * aunque no es un instrumento activable/desactivable como Fase/Etapa. */
 export function ConfiguracionExplorer({
   fases,
   etapas,
   instrumentos,
   reglas,
+  cohortes,
 }: {
   fases: FaseRow[];
   etapas: EtapaRow[];
   instrumentos: InstrumentoRow[];
   reglas: ReglaAvanceRow[];
+  cohortes: Cohorte[];
 }) {
   const [tab, setTab] = useState<Tab>("Fases");
 
@@ -50,6 +56,7 @@ export function ConfiguracionExplorer({
       {tab === "Etapas" && <EtapasTab etapas={etapas} fases={fases} />}
       {tab === "Instrumentos" && <InstrumentosTab instrumentos={instrumentos} fases={fases} />}
       {tab === "Reglas de avance" && <ReglasAvanceTab reglas={reglas} fases={fases} instrumentos={instrumentos} />}
+      {tab === "Cohortes" && <CohortesTab cohortes={cohortes} />}
     </div>
   );
 }

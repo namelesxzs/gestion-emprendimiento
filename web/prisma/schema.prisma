@@ -42,7 +42,8 @@ model Usuario {
   documentosRevisados Documento[]      @relation("DocumentosRevisados")
   solicitudesRestablecimiento SolicitudRestablecimiento[] @relation("SolicitudUsuario")
   solicitudesAtendidas        SolicitudRestablecimiento[] @relation("SolicitudAtendidaPor")
-  respuestasInstrumentoRegistradas InstrumentoRespuesta[]
+  respuestasInstrumentoRegistradas InstrumentoRespuesta[] @relation("RespuestaRegistradaPor")
+  respuestasInstrumentoRevisadas   InstrumentoRespuesta[] @relation("RespuestaRevisadaPor")
 
   @@index([rol])
   @@index([sede])
@@ -79,14 +80,31 @@ model Emprendedor {
   faseId String?
   fase   Fase?   @relation(fields: [faseId], references: [id])
 
-  cuentaUsuario   Usuario?         @relation("CuentaEmprendedor")
-  acompanamientos Acompanamiento[]
-  reuniones       Reunion[]
-  importaciones   ImportRun[]      @relation("EmprendedoresAfectados")
-  documentos      Documento[]
+  // Ficha de caracterización del emprendimiento (Manual 6.2) — todos
+  // opcionales porque los emprendedores existentes no los tienen todavía y
+  // el importador de Excel no los toca.
+  sede              String? // Sede física del emprendimiento — distinta de la sede del Docente responsable.
+  programaAcademico String?
+  facultad          String?
+  tipoInnovacion    String? // Base tecnológica | Social | Tradicional
+  madurez           String? // Idea | Prototipo | Operando
+  problema          String?
+  descripcionIdea   String?
+  canalPostulacion  String? // Formulario web | Feria | Referido | Otro
+
+  cohorteId String?
+  cohorte   Cohorte? @relation(fields: [cohorteId], references: [id])
+
+  cuentaUsuario     Usuario?           @relation("CuentaEmprendedor")
+  acompanamientos   Acompanamiento[]
+  reuniones         Reunion[]
+  importaciones     ImportRun[]        @relation("EmprendedoresAfectados")
+  documentos        Documento[]
   respuestasInstrumento InstrumentoRespuesta[]
+  integrantesEquipo IntegranteEquipo[]
 
   @@index([etapa])
+  @@index([cohorteId])
   @@index([estado])
   @@index([faseId])
 }
@@ -165,6 +183,17 @@ model Instrumento {
   orden                 Int      @default(0)
   activo                Boolean  @default(true)
   camposSchema          Json
+  // Manual §5.6: "quién lo revisa y en qué plazo" — días desde que se
+  // diligencia hasta que el responsable de revisar debe revisarlo.
+  plazoRevisionDias     Int?
+  // Instrumentos que se diligencian varias veces por emprendimiento: la
+  // bitácora "en cada sesión", una entrevista de Customer Discovery por
+  // persona, una versión del BMC por gate (§5.1), un experimento por
+  // hipótesis... Los demás son un único registro que se edita.
+  permiteMultiples      Boolean  @default(false)
+  // Aplica en todas las fases (ej. bitácora 6.10, encuesta 7.6): se muestra
+  // en cada pestaña de /ruta aunque su faseId sea la de su anexo.
+  transversal           Boolean  @default(false)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -186,12 +215,20 @@ model InstrumentoRespuesta {
   emprendedor     Emprendedor @relation(fields: [emprendedorId], references: [id])
   datos           Json
   registradoPorId String
-  registradoPor   Usuario  @relation(fields: [registradoPorId], references: [id])
+  registradoPor   Usuario  @relation("RespuestaRegistradaPor", fields: [registradoPorId], references: [id])
+  // Revisión por el responsable que asigna el Manual (§5.6). Volver a
+  // editar un registro ya revisado lo regresa a "Pendiente".
+  estadoRevision     String    @default("Pendiente") // Pendiente | Revisado | Devuelto
+  revisadoPorId      String?
+  revisadoPor        Usuario?  @relation("RespuestaRevisadaPor", fields: [revisadoPorId], references: [id])
+  revisadoEn         DateTime?
+  comentarioRevision String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@unique([instrumentoId, emprendedorId])
+  @@index([instrumentoId, emprendedorId])
   @@index([emprendedorId])
+  @@index([estadoRevision])
 }
 
 // Regla de avance configurable — generaliza el "formato de tránsito de
@@ -214,6 +251,51 @@ model ReglaAvance {
 
   @@index([faseDestinoId])
   @@index([activa])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 12 del roadmap — entidades núcleo que exige la ficha del Manual
+// (6.1/6.2): cohorte, sede y equipo emprendedor. No son parte del catálogo
+// configurable (no se "activan/desactivan" como un Instrumento) porque son
+// estructura de datos, no formatos opcionales.
+// ---------------------------------------------------------------------------
+
+// Cohorte de ingreso a la ruta — unidad de reporte que el Manual pide una y
+// otra vez ("por cohorte, sede y asesor") para Vicerrectoría y convocatorias
+// externas (Fondo Emprender, CONPES 4130).
+model Cohorte {
+  id          String    @id @default(cuid())
+  nombre      String
+  sede        String?
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+  activa      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  emprendedores Emprendedor[]
+
+  @@index([activa])
+}
+
+// Integrante del equipo emprendedor (Manual 6.1 — tabla de integrantes de la
+// ficha de inscripción). Varios por Emprendedor; el Emprendedor sigue siendo
+// el registro maestro (nombre/correo/teléfono del contacto principal).
+model IntegranteEquipo {
+  id                String   @id @default(cuid())
+  emprendedorId     String
+  emprendedor       Emprendedor @relation(fields: [emprendedorId], references: [id])
+  nombre            String
+  documento         String?
+  programaAcademico String?
+  semestre          String?
+  correo            String?
+  telefono          String?
+  rolEquipo         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([emprendedorId])
 }
 
 model Acompanamiento {

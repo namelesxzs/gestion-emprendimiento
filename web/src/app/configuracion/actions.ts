@@ -11,6 +11,7 @@ import {
   toggleCatalogoSchema,
   crearReglaAvanceSchema,
 } from "@/lib/validation/catalogo";
+import { cohorteSchema, editarCohorteSchema, toggleCohorteSchema } from "@/lib/validation/emprendedor";
 
 export type CatalogoActionState = { error?: string; success?: boolean };
 const initialOk: CatalogoActionState = { success: true };
@@ -207,6 +208,9 @@ export async function editarInstrumento(
     responsableRevisa: formData.get("responsableRevisa") || undefined,
     faseId: formData.get("faseId") || undefined,
     orden: formData.get("orden"),
+    plazoRevisionDias: formData.get("plazoRevisionDias") || undefined,
+    permiteMultiples: formData.get("permiteMultiples") === "on",
+    transversal: formData.get("transversal") === "on",
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
 
@@ -224,6 +228,9 @@ export async function editarInstrumento(
         responsableRevisa: parsed.data.responsableRevisa ?? null,
         faseId: parsed.data.faseId || null,
         orden: parsed.data.orden,
+        plazoRevisionDias: parsed.data.plazoRevisionDias ?? null,
+        permiteMultiples: parsed.data.permiteMultiples ?? false,
+        transversal: parsed.data.transversal ?? false,
       },
     });
     await registrarAuditoria({
@@ -380,5 +387,145 @@ export async function toggleActivaReglaAvance(
   }
 
   revalidarConfiguracion();
+  return initialOk;
+}
+
+// --- Cohorte (Fase 12) -----------------------------------------------------
+
+export type CrearCohorteState = { error?: string; success?: boolean };
+
+export async function crearCohorte(_prevState: CrearCohorteState, formData: FormData): Promise<CrearCohorteState> {
+  let session;
+  try {
+    session = await requireRole("ADMINISTRADOR");
+  } catch (error) {
+    if (error instanceof AuthzError) return { error: error.message };
+    throw error;
+  }
+
+  const parsed = cohorteSchema.safeParse({
+    nombre: formData.get("nombre"),
+    sede: formData.get("sede") || undefined,
+    fechaInicio: formData.get("fechaInicio") || undefined,
+    fechaFin: formData.get("fechaFin") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+
+  try {
+    const cohorte = await prisma.cohorte.create({
+      data: {
+        nombre: parsed.data.nombre,
+        sede: parsed.data.sede || null,
+        fechaInicio: parsed.data.fechaInicio ? new Date(`${parsed.data.fechaInicio}T00:00:00`) : null,
+        fechaFin: parsed.data.fechaFin ? new Date(`${parsed.data.fechaFin}T00:00:00`) : null,
+      },
+    });
+    await registrarAuditoria({
+      usuarioId: session.user.id,
+      rol: session.user.rol,
+      origen: "ADMINISTRACION",
+      entidad: "Cohorte",
+      entidadId: cohorte.id,
+      accion: "CREATE",
+      valorNuevo: { nombre: cohorte.nombre, sede: cohorte.sede },
+    });
+  } catch (error) {
+    console.error("No se pudo crear la cohorte", error);
+    return { error: "No se pudo crear la cohorte. Intenta de nuevo." };
+  }
+
+  revalidarConfiguracion();
+  revalidatePath("/emprendedores");
+  return { success: true };
+}
+
+export async function editarCohorte(_prevState: CatalogoActionState, formData: FormData): Promise<CatalogoActionState> {
+  let session;
+  try {
+    session = await requireRole("ADMINISTRADOR");
+  } catch (error) {
+    if (error instanceof AuthzError) return { error: error.message };
+    throw error;
+  }
+
+  const parsed = editarCohorteSchema.safeParse({
+    id: formData.get("id"),
+    nombre: formData.get("nombre"),
+    sede: formData.get("sede") || undefined,
+    fechaInicio: formData.get("fechaInicio") || undefined,
+    fechaFin: formData.get("fechaFin") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+
+  const actual = await prisma.cohorte.findUnique({ where: { id: parsed.data.id } });
+  if (!actual) return { error: "La cohorte ya no existe." };
+
+  try {
+    const actualizada = await prisma.cohorte.update({
+      where: { id: parsed.data.id },
+      data: {
+        nombre: parsed.data.nombre,
+        sede: parsed.data.sede || null,
+        fechaInicio: parsed.data.fechaInicio ? new Date(`${parsed.data.fechaInicio}T00:00:00`) : null,
+        fechaFin: parsed.data.fechaFin ? new Date(`${parsed.data.fechaFin}T00:00:00`) : null,
+      },
+    });
+    await registrarAuditoria({
+      usuarioId: session.user.id,
+      rol: session.user.rol,
+      origen: "ADMINISTRACION",
+      entidad: "Cohorte",
+      entidadId: actualizada.id,
+      accion: "UPDATE",
+      valorAnterior: { nombre: actual.nombre, sede: actual.sede },
+      valorNuevo: { nombre: actualizada.nombre, sede: actualizada.sede },
+    });
+  } catch (error) {
+    console.error("No se pudo editar la cohorte", error);
+    return { error: "No se pudo guardar el cambio. Intenta de nuevo." };
+  }
+
+  revalidarConfiguracion();
+  revalidatePath("/emprendedores");
+  return initialOk;
+}
+
+export async function toggleActivaCohorte(
+  _prevState: CatalogoActionState,
+  formData: FormData
+): Promise<CatalogoActionState> {
+  let session;
+  try {
+    session = await requireRole("ADMINISTRADOR");
+  } catch (error) {
+    if (error instanceof AuthzError) return { error: error.message };
+    throw error;
+  }
+
+  const parsed = toggleCohorteSchema.safeParse({ id: formData.get("id") });
+  if (!parsed.success) return { error: "Cohorte inválida." };
+
+  const actual = await prisma.cohorte.findUnique({ where: { id: parsed.data.id } });
+  if (!actual) return { error: "La cohorte ya no existe." };
+
+  try {
+    const actualizada = await prisma.cohorte.update({ where: { id: actual.id }, data: { activa: !actual.activa } });
+    await registrarAuditoria({
+      usuarioId: session.user.id,
+      rol: session.user.rol,
+      origen: "ADMINISTRACION",
+      entidad: "Cohorte",
+      entidadId: actualizada.id,
+      accion: "UPDATE",
+      valorAnterior: { activa: actual.activa },
+      valorNuevo: { activa: actualizada.activa },
+    });
+  } catch (error) {
+    console.error("No se pudo cambiar el estado de la cohorte", error);
+    return { error: "No se pudo guardar el cambio. Intenta de nuevo." };
+  }
+
+  revalidarConfiguracion();
+  revalidatePath("/emprendedores");
   return initialOk;
 }

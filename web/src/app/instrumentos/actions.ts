@@ -5,8 +5,12 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { requireSession, requireOwnEmprendedor, AuthzError } from "@/lib/authz";
 import { registrarAuditoria } from "@/lib/audit";
+import { puedeDiligenciarInstrumento, puedeRevisarInstrumento } from "@/lib/catalogo/permisos";
 import {
+  extraerDatosFormulario,
   guardarRespuestaInstrumentoSchema,
+  revisarRespuestaInstrumentoSchema,
+  sellarFirmas,
   validarDatosInstrumento,
   type CampoRuntime,
 } from "@/lib/validation/catalogo";
@@ -14,10 +18,15 @@ import {
 export type GuardarRespuestaInstrumentoState = { error?: string; success?: boolean };
 
 /**
- * Guarda (crea o actualiza) la respuesta de un Instrumento del catálogo para
- * un Emprendedor — el motor de formularios genérico: los campos válidos
- * vienen del `camposSchema` del propio instrumento, no de código nuevo por
- * cada formato (ver auditoría §07/§08, C3).
+ * Guarda la respuesta de un Instrumento del catálogo para un Emprendedor —
+ * el motor de formularios genérico: los campos válidos vienen del
+ * `camposSchema` del propio instrumento, no de código nuevo por cada formato
+ * (ver auditoría §07/§08, C3).
+ *
+ * - Con `respuestaId`: edita ese registro puntual.
+ * - Sin `respuestaId` y el instrumento admite varios registros (bitácora por
+ *   sesión, entrevistas, versiones del BMC por gate...): crea uno nuevo.
+ * - Sin `respuestaId` y registro único: edita el existente o lo crea.
  */
 export async function guardarRespuestaInstrumento(
   _prevState: GuardarRespuestaInstrumentoState,
@@ -34,11 +43,12 @@ export async function guardarRespuestaInstrumento(
   const parsed = guardarRespuestaInstrumentoSchema.safeParse({
     instrumentoId: formData.get("instrumentoId"),
     emprendedorId: formData.get("emprendedorId"),
+    respuestaId: formData.get("respuestaId") || undefined,
   });
   if (!parsed.success) return { error: "Datos inválidos." };
 
   // Un Emprendedor solo puede diligenciar instrumentos de su propio
-  // registro (RF13) — Administrador y Docente pueden hacerlo por cualquiera.
+  // registro (RF13) — verificado antes de tocar cualquier dato.
   if (session.user.rol === "EMPRENDEDOR") {
     try {
       requireOwnEmprendedor(session, parsed.data.emprendedorId);
@@ -46,39 +56,79 @@ export async function guardarRespuestaInstrumento(
       if (error instanceof AuthzError) return { error: error.message };
       throw error;
     }
-  } else if (session.user.rol === "COORDINADOR") {
-    return { error: "El Coordinador consulta indicadores, no diligencia instrumentos." };
   }
 
   const instrumento = await prisma.instrumento.findUnique({ where: { id: parsed.data.instrumentoId } });
   if (!instrumento) return { error: "El instrumento ya no existe." };
   if (!instrumento.activo) return { error: "Este instrumento fue desactivado por el Administrador." };
 
+  // El Manual asigna un responsable de diligenciar por instrumento (ver
+  // src/lib/catalogo/permisos.ts) — no todos los roles pueden diligenciar
+  // todos los formatos, esto se verifica en el servidor, no solo ocultando
+  // el botón en /emprendedores o en el portal del Emprendedor.
+  if (!puedeDiligenciarInstrumento(session.user.rol, instrumento.responsableDiligencia)) {
+    return {
+      error:
+        session.user.rol === "COORDINADOR"
+          ? "El Coordinador consulta indicadores, no diligencia instrumentos."
+          : `Este instrumento lo diligencia: ${instrumento.responsableDiligencia ?? "el asesor"}.`,
+    };
+  }
+
   const emprendedor = await prisma.emprendedor.findUnique({ where: { id: parsed.data.emprendedorId } });
   if (!emprendedor) return { error: "El emprendedor ya no existe." };
 
-  const campos = (instrumento.camposSchema as unknown as CampoRuntime[]) ?? [];
-  const valoresCrudos: Record<string, unknown> = {};
-  for (const campo of campos) {
-    valoresCrudos[campo.clave] = campo.tipo === "booleano" ? formData.get(campo.clave) === "on" : formData.get(campo.clave);
+  // Registro a editar: el indicado, o el único existente si el instrumento
+  // no admite varios. Siempre del mismo instrumento y emprendedor.
+  let existente = null;
+  if (parsed.data.respuestaId) {
+    existente = await prisma.instrumentoRespuesta.findUnique({ where: { id: parsed.data.respuestaId } });
+    if (!existente || existente.instrumentoId !== instrumento.id || existente.emprendedorId !== emprendedor.id) {
+      return { error: "El registro que intentas editar no pertenece a este formato." };
+    }
+  } else if (!instrumento.permiteMultiples) {
+    existente = await prisma.instrumentoRespuesta.findFirst({
+      where: { instrumentoId: instrumento.id, emprendedorId: emprendedor.id },
+      orderBy: { updatedAt: "desc" },
+    });
   }
 
-  const validacion = validarDatosInstrumento(campos, valoresCrudos);
+  const campos = (instrumento.camposSchema as unknown as CampoRuntime[]) ?? [];
+  const validacion = validarDatosInstrumento(campos, extraerDatosFormulario(campos, formData));
   if (!validacion.ok) return { error: validacion.error };
 
-  const datosJson = JSON.parse(JSON.stringify(validacion.datos)) as Prisma.InputJsonValue;
+  const usuario = await prisma.usuario.findUnique({ where: { id: session.user.id }, select: { nombre: true } });
+  const firmado = sellarFirmas(
+    campos,
+    validacion.datos,
+    (existente?.datos as Record<string, unknown> | undefined) ?? null,
+    { id: session.user.id, nombre: usuario?.nombre ?? session.user.name ?? "", rol: session.user.rol }
+  );
+  if (!firmado.ok) return { error: firmado.error };
+
+  const datosJson = JSON.parse(JSON.stringify(firmado.datos)) as Prisma.InputJsonValue;
 
   try {
-    const respuesta = await prisma.instrumentoRespuesta.upsert({
-      where: { instrumentoId_emprendedorId: { instrumentoId: instrumento.id, emprendedorId: emprendedor.id } },
-      update: { datos: datosJson, registradoPorId: session.user.id },
-      create: {
-        instrumentoId: instrumento.id,
-        emprendedorId: emprendedor.id,
-        datos: datosJson,
-        registradoPorId: session.user.id,
-      },
-    });
+    const respuesta = existente
+      ? await prisma.instrumentoRespuesta.update({
+          where: { id: existente.id },
+          // Editar un registro ya revisado lo devuelve a revisión (§5.6).
+          data: {
+            datos: datosJson,
+            registradoPorId: session.user.id,
+            estadoRevision: "Pendiente",
+            revisadoPorId: null,
+            revisadoEn: null,
+          },
+        })
+      : await prisma.instrumentoRespuesta.create({
+          data: {
+            instrumentoId: instrumento.id,
+            emprendedorId: emprendedor.id,
+            datos: datosJson,
+            registradoPorId: session.user.id,
+          },
+        });
 
     await registrarAuditoria({
       usuarioId: session.user.id,
@@ -86,8 +136,9 @@ export async function guardarRespuestaInstrumento(
       origen: "MANUAL",
       entidad: "InstrumentoRespuesta",
       entidadId: respuesta.id,
-      accion: "UPDATE",
-      valorNuevo: { instrumento: instrumento.nombre, emprendedorId: emprendedor.id },
+      accion: existente ? "UPDATE" : "CREATE",
+      valorAnterior: existente ? { datos: existente.datos } : undefined,
+      valorNuevo: { instrumento: instrumento.nombre, emprendedorId: emprendedor.id, datos: datosJson },
     });
   } catch (error) {
     console.error("No se pudo guardar la respuesta del instrumento", error);
@@ -95,5 +146,75 @@ export async function guardarRespuestaInstrumento(
   }
 
   revalidatePath("/emprendedores");
+  revalidatePath("/");
+  return { success: true };
+}
+
+export type RevisarRespuestaInstrumentoState = { error?: string; success?: boolean };
+
+/**
+ * Revisión de un formato diligenciado por el responsable que asigna el
+ * Manual (§5.6): lo marca "Revisado" o lo "Devuelve" con un comentario para
+ * que se corrija.
+ */
+export async function revisarRespuestaInstrumento(
+  _prevState: RevisarRespuestaInstrumentoState,
+  formData: FormData
+): Promise<RevisarRespuestaInstrumentoState> {
+  let session;
+  try {
+    session = await requireSession();
+  } catch (error) {
+    if (error instanceof AuthzError) return { error: error.message };
+    throw error;
+  }
+
+  const parsed = revisarRespuestaInstrumentoSchema.safeParse({
+    respuestaId: formData.get("respuestaId"),
+    decision: formData.get("decision"),
+    comentario: formData.get("comentario") || undefined,
+  });
+  if (!parsed.success) return { error: "Datos inválidos." };
+  if (parsed.data.decision === "Devuelto" && !parsed.data.comentario) {
+    return { error: "Para devolver un formato escribe qué debe corregirse." };
+  }
+
+  const respuesta = await prisma.instrumentoRespuesta.findUnique({
+    where: { id: parsed.data.respuestaId },
+    include: { instrumento: true },
+  });
+  if (!respuesta) return { error: "El registro ya no existe." };
+
+  if (!puedeRevisarInstrumento(session.user.rol, respuesta.instrumento.responsableRevisa)) {
+    return { error: `Este formato lo revisa: ${respuesta.instrumento.responsableRevisa ?? "el Administrador"}.` };
+  }
+
+  try {
+    await prisma.instrumentoRespuesta.update({
+      where: { id: respuesta.id },
+      data: {
+        estadoRevision: parsed.data.decision,
+        revisadoPorId: session.user.id,
+        revisadoEn: new Date(),
+        comentarioRevision: parsed.data.comentario ?? null,
+      },
+    });
+    await registrarAuditoria({
+      usuarioId: session.user.id,
+      rol: session.user.rol,
+      origen: "MANUAL",
+      entidad: "InstrumentoRespuesta",
+      entidadId: respuesta.id,
+      accion: "UPDATE",
+      valorAnterior: { estadoRevision: respuesta.estadoRevision },
+      valorNuevo: { estadoRevision: parsed.data.decision, comentario: parsed.data.comentario ?? null },
+    });
+  } catch (error) {
+    console.error("No se pudo registrar la revisión", error);
+    return { error: "No se pudo guardar la revisión. Intenta de nuevo." };
+  }
+
+  revalidatePath("/emprendedores");
+  revalidatePath("/");
   return { success: true };
 }

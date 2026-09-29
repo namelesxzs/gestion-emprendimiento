@@ -4,11 +4,13 @@ import { auth } from "@/auth";
 import {
   getAllAcompanamientos,
   getAllReuniones,
+  getCohortes,
   getDocumentosByEmprendedor,
   getEmprendedores,
   getEmprendedorIdsConPortal,
   getFases,
   getInstrumentos,
+  getIntegrantesEquipo,
   getRespuestasInstrumento,
 } from "@/lib/queries";
 import { getUltimoAvance } from "@/lib/view";
@@ -22,17 +24,29 @@ export default async function EmprendedoresPage() {
     redirect("/");
   }
 
-  const [emprendedores, acompanamientos, reuniones, emprendedorIdsConPortal, documentos, fases, instrumentos, respuestasInstrumento] =
-    await Promise.all([
-      getEmprendedores(),
-      getAllAcompanamientos(),
-      getAllReuniones(),
-      getEmprendedorIdsConPortal(),
-      getDocumentosByEmprendedor(),
-      getFases(true),
-      getInstrumentos(true),
-      getRespuestasInstrumento(),
-    ]);
+  const [
+    emprendedores,
+    acompanamientos,
+    reuniones,
+    emprendedorIdsConPortal,
+    documentos,
+    fases,
+    instrumentos,
+    respuestasInstrumento,
+    cohortes,
+    integrantesEquipo,
+  ] = await Promise.all([
+    getEmprendedores(),
+    getAllAcompanamientos(),
+    getAllReuniones(),
+    getEmprendedorIdsConPortal(),
+    getDocumentosByEmprendedor(),
+    getFases(true),
+    getInstrumentos(true),
+    getRespuestasInstrumento(),
+    getCohortes(true),
+    getIntegrantesEquipo(),
+  ]);
 
   const rows = emprendedores.map((e) => ({
     ...e,
@@ -68,6 +82,8 @@ export default async function EmprendedoresPage() {
         fases={fases}
         instrumentos={instrumentos}
         respuestasInstrumento={respuestasInstrumento}
+        cohortes={cohortes}
+        integrantesEquipo={integrantesEquipo}
       />
     </main>
   );

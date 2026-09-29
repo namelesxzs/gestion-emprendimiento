@@ -36,6 +36,20 @@ function EditarInstrumentoForm({
       />
       <FormField label="Responsable de revisar" name="responsableRevisa" defaultValue={instrumento.responsableRevisa ?? ""} />
       <FormField label="Orden" name="orden" type="number" required defaultValue={String(instrumento.orden)} />
+      <FormField
+        label="Plazo de revisión (días) — Manual §5.6"
+        name="plazoRevisionDias"
+        type="number"
+        defaultValue={instrumento.plazoRevisionDias ? String(instrumento.plazoRevisionDias) : ""}
+      />
+      <label className="flex items-center gap-2 text-sm" style={{ color: "var(--text-primary)" }}>
+        <input type="checkbox" name="permiteMultiples" defaultChecked={instrumento.permiteMultiples} className="h-4 w-4" />
+        Se diligencia varias veces por emprendimiento (cada sesión, cada versión, cada periodo)
+      </label>
+      <label className="flex items-center gap-2 text-sm" style={{ color: "var(--text-primary)" }}>
+        <input type="checkbox" name="transversal" defaultChecked={instrumento.transversal} className="h-4 w-4" />
+        Transversal: aplica en todas las fases
+      </label>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="faseId" className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
           Fase

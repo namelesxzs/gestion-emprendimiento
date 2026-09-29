@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type {
   Acompanamiento,
+  Cohorte,
   Compromiso,
   Documento,
   Emprendedor,
@@ -9,6 +10,7 @@ import type {
   EstadoDocumento,
   EstadoEmprendedor,
   EstadoReunion,
+  IntegranteEquipo,
   Reunion,
   UsuarioGestionable,
 } from "@/lib/types";
@@ -26,7 +28,7 @@ function fmtDate(d: Date): string {
 export async function getEmprendedores(soloEmprendedorId?: string): Promise<Emprendedor[]> {
   const rows = await prisma.emprendedor.findMany({
     where: soloEmprendedorId ? { id: soloEmprendedorId } : undefined,
-    include: { responsable: true, fase: { select: { nombre: true } } },
+    include: { responsable: true, fase: { select: { nombre: true } }, cohorte: { select: { nombre: true } } },
     orderBy: { nombre: "asc" },
   });
 
@@ -43,6 +45,16 @@ export async function getEmprendedores(soloEmprendedorId?: string): Promise<Empr
     telefono: e.telefono,
     faseId: e.faseId,
     faseNombre: e.fase?.nombre ?? null,
+    sede: e.sede,
+    programaAcademico: e.programaAcademico,
+    facultad: e.facultad,
+    tipoInnovacion: e.tipoInnovacion,
+    madurez: e.madurez,
+    problema: e.problema,
+    descripcionIdea: e.descripcionIdea,
+    canalPostulacion: e.canalPostulacion,
+    cohorteId: e.cohorteId,
+    cohorteNombre: e.cohorte?.nombre ?? null,
   }));
 }
 
@@ -363,6 +375,9 @@ export interface InstrumentoRow {
   faseId: string | null;
   faseNombre: string | null;
   camposSchema: CampoRuntime[];
+  permiteMultiples: boolean;
+  transversal: boolean;
+  plazoRevisionDias: number | null;
 }
 
 export async function getInstrumentos(soloActivos = false): Promise<InstrumentoRow[]> {
@@ -385,6 +400,9 @@ export async function getInstrumentos(soloActivos = false): Promise<InstrumentoR
     faseId: i.faseId,
     faseNombre: i.fase?.nombre ?? null,
     camposSchema: (i.camposSchema as unknown as CampoRuntime[]) ?? [],
+    permiteMultiples: i.permiteMultiples,
+    transversal: i.transversal,
+    plazoRevisionDias: i.plazoRevisionDias,
   }));
 }
 
@@ -428,6 +446,12 @@ export interface RespuestaInstrumentoRow {
   registradoPorNombre: string;
   createdAt: string;
   updatedAt: string;
+  estadoRevision: "Pendiente" | "Revisado" | "Devuelto";
+  revisadoPorNombre: string | null;
+  revisadoEn: string | null;
+  comentarioRevision: string | null;
+  /** Pendiente de revisión más allá del plazo del instrumento (§5.6). */
+  revisionVencida: boolean;
 }
 
 export interface RespuestaInstrumentoRowConEmprendedor extends RespuestaInstrumentoRow {
@@ -443,16 +467,96 @@ export async function getRespuestasInstrumento(
 ): Promise<RespuestaInstrumentoRowConEmprendedor[]> {
   const rows = await prisma.instrumentoRespuesta.findMany({
     where: soloEmprendedorId ? { emprendedorId: soloEmprendedorId } : undefined,
-    include: { registradoPor: { select: { nombre: true } } },
+    include: {
+      registradoPor: { select: { nombre: true } },
+      revisadoPor: { select: { nombre: true } },
+      instrumento: { select: { plazoRevisionDias: true } },
+    },
     orderBy: { updatedAt: "desc" },
   });
-  return rows.map((r) => ({
-    id: r.id,
-    instrumentoId: r.instrumentoId,
-    emprendedorId: r.emprendedorId,
-    datos: r.datos as Record<string, unknown>,
-    registradoPorNombre: r.registradoPor.nombre,
-    createdAt: r.createdAt.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }),
-    updatedAt: r.updatedAt.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }),
+  const ahora = Date.now();
+  const fmt = (d: Date) => d.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
+  return rows.map((r) => {
+    const plazo = r.instrumento.plazoRevisionDias;
+    return {
+      id: r.id,
+      instrumentoId: r.instrumentoId,
+      emprendedorId: r.emprendedorId,
+      datos: r.datos as Record<string, unknown>,
+      registradoPorNombre: r.registradoPor.nombre,
+      createdAt: fmt(r.createdAt),
+      updatedAt: fmt(r.updatedAt),
+      estadoRevision: r.estadoRevision as RespuestaInstrumentoRow["estadoRevision"],
+      revisadoPorNombre: r.revisadoPor?.nombre ?? null,
+      revisadoEn: r.revisadoEn ? fmt(r.revisadoEn) : null,
+      comentarioRevision: r.comentarioRevision,
+      revisionVencida:
+        r.estadoRevision === "Pendiente" && plazo !== null && ahora > r.updatedAt.getTime() + plazo * 86_400_000,
+    };
+  });
+}
+
+// --- Fase 12: cohortes y equipo emprendedor --------------------------------
+
+/** `soloActivas` es para selectores de formulario — la pantalla de
+ * configuración siempre pide todas, activas e inactivas. */
+export async function getCohortes(soloActivas = false): Promise<Cohorte[]> {
+  const rows = await prisma.cohorte.findMany({
+    where: soloActivas ? { activa: true } : undefined,
+    orderBy: [{ activa: "desc" }, { nombre: "asc" }],
+  });
+  return rows.map((c) => ({
+    id: c.id,
+    nombre: c.nombre,
+    sede: c.sede,
+    fechaInicio: c.fechaInicio ? fmtDate(c.fechaInicio) : null,
+    fechaFin: c.fechaFin ? fmtDate(c.fechaFin) : null,
+    activa: c.activa,
+  }));
+}
+
+export interface EmprendedoresPorCohorte {
+  cohorte: string;
+  total: number;
+  activos: number;
+}
+
+/** Agregación para reportería externa (Manual §5.2/5.5: "por cohorte, sede
+ * y asesor") — mismo patrón que getEmprendedoresPorSede. */
+export async function getEmprendedoresPorCohorte(): Promise<EmprendedoresPorCohorte[]> {
+  const rows = await prisma.emprendedor.findMany({
+    select: { estado: true, cohorte: { select: { nombre: true } } },
+  });
+
+  const mapa = new Map<string, EmprendedoresPorCohorte>();
+  for (const r of rows) {
+    const cohorte = r.cohorte?.nombre ?? "Sin cohorte asignada";
+    const actual = mapa.get(cohorte) ?? { cohorte, total: 0, activos: 0 };
+    actual.total += 1;
+    if (r.estado === "Activo") actual.activos += 1;
+    mapa.set(cohorte, actual);
+  }
+
+  return Array.from(mapa.values()).sort((a, b) => b.total - a.total);
+}
+
+/** Sin `soloEmprendedorId` trae los integrantes de todos — mismo patrón que
+ * el resto de getAllX, para poblar la lista completa y filtrarla en el
+ * cliente al seleccionar un emprendedor. */
+export async function getIntegrantesEquipo(soloEmprendedorId?: string): Promise<IntegranteEquipo[]> {
+  const rows = await prisma.integranteEquipo.findMany({
+    where: soloEmprendedorId ? { emprendedorId: soloEmprendedorId } : undefined,
+    orderBy: { createdAt: "asc" },
+  });
+  return rows.map((i) => ({
+    id: i.id,
+    emprendedorId: i.emprendedorId,
+    nombre: i.nombre,
+    documento: i.documento,
+    programaAcademico: i.programaAcademico,
+    semestre: i.semestre,
+    correo: i.correo,
+    telefono: i.telefono,
+    rolEquipo: i.rolEquipo,
   }));
 }

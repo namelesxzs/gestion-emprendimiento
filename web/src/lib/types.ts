@@ -23,6 +23,40 @@ export interface Emprendedor {
    * pertenece (ver auditoría §07). Puede no tener fase asignada. */
   faseId: string | null;
   faseNombre: string | null;
+  /** Ficha de caracterización (Manual 6.2) — todos opcionales, se completan
+   * con el tiempo. */
+  sede: string | null;
+  programaAcademico: string | null;
+  facultad: string | null;
+  tipoInnovacion: string | null;
+  madurez: string | null;
+  problema: string | null;
+  descripcionIdea: string | null;
+  canalPostulacion: string | null;
+  cohorteId: string | null;
+  cohorteNombre: string | null;
+}
+
+/** Integrante del equipo emprendedor (Manual 6.1) — varios por Emprendedor. */
+export interface IntegranteEquipo {
+  id: string;
+  emprendedorId: string;
+  nombre: string;
+  documento: string | null;
+  programaAcademico: string | null;
+  semestre: string | null;
+  correo: string | null;
+  telefono: string | null;
+  rolEquipo: string | null;
+}
+
+export interface Cohorte {
+  id: string;
+  nombre: string;
+  sede: string | null;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+  activa: boolean;
 }
 
 /**

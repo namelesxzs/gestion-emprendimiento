@@ -12,6 +12,7 @@ export async function limpiarDb() {
   await prisma.reglaAvance.deleteMany();
   await prisma.solicitudRestablecimiento.deleteMany();
   await prisma.importRun.deleteMany();
+  await prisma.integranteEquipo.deleteMany();
   await prisma.emprendedor.deleteMany();
   await prisma.usuario.deleteMany();
   // Catálogo (Fase/Etapa/Instrumento) — no lo borra el seed de dev
@@ -19,4 +20,5 @@ export async function limpiarDb() {
   await prisma.instrumento.deleteMany();
   await prisma.etapa.deleteMany();
   await prisma.fase.deleteMany();
+  await prisma.cohorte.deleteMany();
 }

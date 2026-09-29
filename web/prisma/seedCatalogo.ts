@@ -5,7 +5,7 @@
 // ya haya activado/desactivado o editado desde /configuracion.
 
 import { prisma } from "../src/lib/prisma";
-import { FASES_SEED, ETAPAS_SEED, INSTRUMENTOS_SEED } from "./catalogoSeed";
+import { FASES_SEED, ETAPAS_SEED, INSTRUMENTOS_SEED, REGLAS_AVANCE_SEED } from "./catalogoSeed";
 
 // Prisma tipa los campos Json contra InputJsonObject (exige índice de
 // string) — CampoInstrumentoDef[] es estructuralmente JSON válido pero no
@@ -50,6 +50,8 @@ export async function seedCatalogo() {
         responsableDiligencia: i.responsableDiligencia,
         responsableRevisa: i.responsableRevisa,
         orden: i.orden,
+        permiteMultiples: i.permiteMultiples ?? false,
+        transversal: i.transversal ?? false,
         camposSchema: aJson(i.campos),
       },
       create: {
@@ -62,8 +64,28 @@ export async function seedCatalogo() {
         responsableDiligencia: i.responsableDiligencia,
         responsableRevisa: i.responsableRevisa,
         orden: i.orden,
+        permiteMultiples: i.permiteMultiples ?? false,
+        transversal: i.transversal ?? false,
         camposSchema: aJson(i.campos),
       },
+    });
+  }
+
+  // Reglas de avance del Manual §5.2 ("ningún emprendimiento pase de
+  // pre-incubación a incubación sin este formato diligenciado y firmado por
+  // el asesor"). Solo se crean si no existe ya una regla para la misma
+  // transición: si el Administrador la desactivó o la cambió, se respeta.
+  for (const r of REGLAS_AVANCE_SEED) {
+    const faseOrigenId = faseIdPorClave.get(r.faseOrigenClave)!;
+    const faseDestinoId = faseIdPorClave.get(r.faseDestinoClave)!;
+    // Una regla "desde cualquier fase" (faseOrigenId null) hacia el mismo
+    // destino también cubre la transición.
+    const existente = await prisma.reglaAvance.findFirst({
+      where: { faseDestinoId, OR: [{ faseOrigenId }, { faseOrigenId: null }] },
+    });
+    if (existente) continue;
+    await prisma.reglaAvance.create({
+      data: { nombre: r.nombre, faseOrigenId, faseDestinoId, instrumentosClaves: aJson(r.instrumentosClaves) },
     });
   }
 

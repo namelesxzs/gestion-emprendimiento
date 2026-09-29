@@ -4,7 +4,9 @@ import { AvanceMeter } from "./AvanceMeter";
 import { StatTile } from "./StatTile";
 import { ProximasReuniones } from "./ProximasReuniones";
 import { DocumentosEtapa } from "./DocumentosEtapa";
+import { InstrumentosCatalogo } from "./InstrumentosCatalogo";
 import type { Acompanamiento, Documento, Emprendedor, Reunion } from "@/lib/types";
+import type { InstrumentoRow, RespuestaInstrumentoRowConEmprendedor } from "@/lib/queries";
 import { getProximasReuniones, getUltimoAvance } from "@/lib/view";
 
 // Vista de solo lectura para el rol EMPRENDEDOR: solo su propio progreso,
@@ -15,11 +17,15 @@ export function MiPerfilDashboard({
   acompanamientos,
   reuniones,
   documentos,
+  instrumentos,
+  respuestasInstrumento,
 }: {
   emprendedor: Emprendedor;
   acompanamientos: Acompanamiento[];
   reuniones: Reunion[];
   documentos: Documento[];
+  instrumentos: InstrumentoRow[];
+  respuestasInstrumento: RespuestaInstrumentoRowConEmprendedor[];
 }) {
   const avance = getUltimoAvance(acompanamientos, emprendedor.id) ?? 0;
   const proximasReuniones = getProximasReuniones(reuniones, [emprendedor]);
@@ -60,6 +66,13 @@ export function MiPerfilDashboard({
         documentos={documentos}
         puedeSubir
         puedeRevisar={false}
+      />
+
+      <InstrumentosCatalogo
+        emprendedorId={emprendedor.id}
+        instrumentos={instrumentos}
+        respuestas={respuestasInstrumento}
+        rol="EMPRENDEDOR"
       />
 
       <Card title="Próximas reuniones" subtitle="Programadas o reagendadas">

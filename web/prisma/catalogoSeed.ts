@@ -2,14 +2,18 @@
 // auditoría "Manual Ruta de Emprendimiento FUMC", §07/§08, C1-C5).
 //
 // Todo el catálogo que exige el Manual (agosto 2026, MEUNE-FUMC) se siembra
-// de una sola vez: 3 fases, las 5 etapas actuales sin modificar, y los 30
-// instrumentos de las secciones 6 y 7. Nada de esto se "construye cuando se
+// de una sola vez: 3 fases, las 5 etapas actuales sin modificar, y los 31
+// instrumentos del Manual: 13 de la tabla de Fase 1, 17 de la tabla de
+// Fase 2, más el "gate de salida de incubación", que solo aparece como
+// anexo 7.5. Nada de esto se "construye cuando se
 // necesite" — el Administrador solo activa o desactiva lo que ya existe
 // desde /configuracion.
 //
 // Los campos de cada instrumento están tomados literalmente de las tablas
 // de diligenciamiento del Manual cuando el documento las especifica (los 13
-// de Fase 1 y 5 de los 17 de Fase 2 tienen tabla propia). Los 12 restantes
+// de Fase 1 y los 6 anexos de Fase 2). Las tablas del Manual con filas
+// (integrantes, criterios de rúbrica, riesgos, KPIs) son campos "tabla", y
+// las firmas son campos "firma" sellados por el servidor. Los 12 restantes
 // de Fase 2 solo tienen nombre y propósito en el Manual (son plantillas de
 // documento, no formularios de campos) — se les dio un esquema mínimo
 // razonable, editable después desde /configuracion sin tocar código.
@@ -40,6 +44,10 @@ export interface InstrumentoSeed {
   responsableDiligencia: string;
   responsableRevisa: string;
   orden: number;
+  /** Se diligencia varias veces por emprendimiento (ver schema.prisma). */
+  permiteMultiples?: boolean;
+  /** Aplica en todas las fases (ver schema.prisma). */
+  transversal?: boolean;
   campos: CampoInstrumentoDef[];
 }
 
@@ -48,14 +56,14 @@ export const FASES_SEED: FaseSeed[] = [
     clave: "pre_incubacion",
     nombre: "Pre-incubación",
     descripcion:
-      "Sensibilización, ideación y validación temprana del problema. Filtrar ideas, validar el problema y formar al emprendedor en fundamentos.",
+      "Sensibilización, ideación y validación temprana del problema. Filtrar ideas, validar el problema y formar al emprendedor en fundamentos, sin exigir aún un modelo de negocio robusto. Marco predominante: Design Thinking (empatizar, definir, idear, prototipar, testear). El Business Model Canvas y el Value Proposition Canvas nacen aquí como hipótesis.",
     orden: 1,
   },
   {
     clave: "incubacion",
     nombre: "Incubación",
     descripcion:
-      "Estructuración, validación del modelo de negocio y preparación para escalamiento inicial.",
+      "Estructuración, validación del modelo de negocio y preparación para escalamiento inicial: construir y probar el modelo de negocio completo, con evidencia de mercado y preparación para financiamiento o mercado real. Marco predominante: Lean Startup (construir–medir–aprender, experimentos de bajo costo y MVP). El BMC validado de pre-incubación se actualiza con evidencia real en cada gate.",
     orden: 2,
   },
   {
@@ -79,6 +87,7 @@ export const ETAPAS_SEED: EtapaSeed[] = [
 ];
 
 const SI_NO = ["Sí", "No"];
+const PUNTAJE_1_5 = { tipo: "numero" as const, min: 1, max: 5 };
 
 export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
   // ------------------------------------------------------------------
@@ -98,12 +107,26 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
       { clave: "nombreProvisional", etiqueta: "Nombre provisional del emprendimiento", tipo: "texto", requerido: true },
       { clave: "fechaPostulacion", etiqueta: "Fecha de postulación", tipo: "fecha", requerido: true },
       { clave: "canalPostulacion", etiqueta: "Canal de postulación", tipo: "seleccion", requerido: true, opciones: ["Formulario web", "Feria", "Referido", "Otro"] },
-      { clave: "integrantesEquipo", etiqueta: "Integrantes del equipo (nombre, documento, programa, semestre, correo, teléfono — uno por línea)", tipo: "textarea", requerido: true },
-      { clave: "comoSeEntero", etiqueta: "¿Cómo se enteró de la Ruta de Emprendimiento?", tipo: "texto" },
+      {
+        clave: "integrantesEquipo",
+        etiqueta: "Integrantes del equipo emprendedor",
+        tipo: "tabla",
+        requerido: true,
+        filasIniciales: 3,
+        columnas: [
+          { clave: "nombre", etiqueta: "Nombre completo", tipo: "texto", requerido: true },
+          { clave: "documento", etiqueta: "Documento", tipo: "texto", requerido: true },
+          { clave: "programa", etiqueta: "Programa académico", tipo: "texto" },
+          { clave: "semestre", etiqueta: "Semestre", tipo: "texto" },
+          { clave: "correo", etiqueta: "Correo institucional", tipo: "texto" },
+          { clave: "telefono", etiqueta: "Teléfono", tipo: "texto" },
+        ],
+      },
+      { clave: "comoSeEntero", etiqueta: "¿Cómo se enteró de la Ruta de Emprendimiento?", tipo: "textarea" },
       { clave: "motivacion", etiqueta: "Motivación para postularse", tipo: "textarea", requerido: true },
       { clave: "expectativas", etiqueta: "Expectativas frente al acompañamiento", tipo: "textarea" },
-      { clave: "disponibilidadHoras", etiqueta: "Disponibilidad de tiempo semanal (horas)", tipo: "numero" },
-      { clave: "firmaPostulante", etiqueta: "Firma del postulante", tipo: "texto", requerido: true },
+      { clave: "disponibilidadHoras", etiqueta: "Disponibilidad de tiempo semanal (horas)", tipo: "numero", min: 0, max: 168 },
+      { clave: "firmaPostulante", etiqueta: "Firma del postulante", tipo: "firma", firmante: "emprendedor", requerido: true },
     ],
   },
   {
@@ -141,12 +164,24 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     responsableRevisa: "Coordinador",
     orden: 3,
     campos: [
-      { clave: "puntajeInnovacion", etiqueta: "Innovación (1-5)", tipo: "numero", requerido: true },
-      { clave: "puntajeViabilidadTecnica", etiqueta: "Viabilidad técnica (1-5)", tipo: "numero", requerido: true },
-      { clave: "puntajeViabilidadComercial", etiqueta: "Viabilidad comercial (1-5)", tipo: "numero", requerido: true },
-      { clave: "puntajeEquipo", etiqueta: "Equipo emprendedor (1-5)", tipo: "numero", requerido: true },
-      { clave: "puntajeImpacto", etiqueta: "Impacto social, ambiental o económico (1-5)", tipo: "numero", requerido: true },
-      { clave: "observaciones", etiqueta: "Observaciones", tipo: "textarea" },
+      {
+        clave: "criterios",
+        etiqueta: "Criterios de evaluación",
+        tipo: "tabla",
+        requerido: true,
+        filas: [
+          { clave: "innovacion", etiqueta: "Innovación", descripcion: "Grado de novedad de la idea frente a soluciones existentes en el mercado." },
+          { clave: "viabilidadTecnica", etiqueta: "Viabilidad técnica", descripcion: "Posibilidad real de desarrollar el producto o servicio con los recursos disponibles." },
+          { clave: "viabilidadComercial", etiqueta: "Viabilidad comercial", descripcion: "Existencia de un mercado identificable y disposición a pagar." },
+          { clave: "equipo", etiqueta: "Equipo emprendedor", descripcion: "Complementariedad de habilidades y compromiso del equipo." },
+          { clave: "impacto", etiqueta: "Impacto social, ambiental o económico", descripcion: "Contribución del emprendimiento más allá del beneficio económico individual." },
+        ],
+        columnas: [
+          { clave: "puntaje", etiqueta: "Puntaje (1-5)", ...PUNTAJE_1_5, requerido: true },
+          { clave: "observaciones", etiqueta: "Observaciones", tipo: "textarea" },
+        ],
+      },
+      { clave: "puntajeTotal", etiqueta: "Puntaje total (suma de los 5 criterios, máx. 25)", tipo: "total", sumaDe: { tabla: "criterios", columna: "puntaje" }, max: 25 },
       { clave: "decision", etiqueta: "Decisión", tipo: "seleccion", requerido: true, opciones: ["Admite a pre-incubación", "Admite con ajustes", "No admite"] },
       { clave: "evaluadores", etiqueta: "Evaluador(es)", tipo: "texto", requerido: true },
     ],
@@ -180,6 +215,7 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     responsableDiligencia: "Emprendedor",
     responsableRevisa: "Asesor",
     orden: 5,
+    permiteMultiples: true,
     campos: [
       { clave: "personaEntrevistada", etiqueta: "Persona entrevistada (rol / segmento)", tipo: "texto", requerido: true },
       { clave: "fechaEntrevista", etiqueta: "Fecha de la entrevista", tipo: "fecha", requerido: true },
@@ -204,7 +240,9 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     responsableDiligencia: "Emprendedor, con el asesor",
     responsableRevisa: "Asesor",
     orden: 6,
+    permiteMultiples: true,
     campos: [
+      { clave: "gateVersion", etiqueta: "Versión / punto de control (gate) al que corresponde", tipo: "texto", ayuda: "El Manual pide actualizar el BMC en cada gate, no diligenciarlo una sola vez (§5.1)." },
       { clave: "sociosClave", etiqueta: "Socios clave", tipo: "textarea" },
       { clave: "actividadesClave", etiqueta: "Actividades clave", tipo: "textarea" },
       { clave: "recursosClave", etiqueta: "Recursos clave", tipo: "textarea" },
@@ -286,10 +324,12 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     proposito: "Registrar cada sesión de asesoría, compromisos y avances.",
     origenManual: "6.10",
     faseClave: "pre_incubacion",
-    momento: "Cada sesión",
+    momento: "Cada sesión — transversal (pre-incubación e incubación)",
     responsableDiligencia: "Asesor",
     responsableRevisa: "Coordinador",
     orden: 10,
+    permiteMultiples: true,
+    transversal: true,
     campos: [
       { clave: "fechaSesion", etiqueta: "Fecha de la sesión", tipo: "fecha", requerido: true },
       { clave: "asesor", etiqueta: "Asesor(a)", tipo: "texto", requerido: true },
@@ -318,8 +358,8 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
       { clave: "compromisosEmprendedor", etiqueta: "Compromisos del emprendedor", tipo: "textarea", requerido: true },
       { clave: "duracionEstimada", etiqueta: "Duración estimada del acompañamiento en esta fase", tipo: "texto" },
       { clave: "causalesRetiro", etiqueta: "Causales de retiro de la ruta", tipo: "textarea" },
-      { clave: "firmaEmprendedor", etiqueta: "Firma del emprendedor", tipo: "texto", requerido: true },
-      { clave: "firmaAsesor", etiqueta: "Firma del asesor / coordinador de la ruta", tipo: "texto", requerido: true },
+      { clave: "firmaEmprendedor", etiqueta: "Firma del emprendedor", tipo: "firma", firmante: "emprendedor", requerido: true },
+      { clave: "firmaAsesor", etiqueta: "Firma del asesor / coordinador de la ruta", tipo: "firma", firmante: "asesor", requerido: true },
     ],
   },
   {
@@ -333,13 +373,13 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     responsableRevisa: "Asesor",
     orden: 12,
     campos: [
-      { clave: "autorizaTratamientoDatos", etiqueta: "Autorización de tratamiento de datos personales (Ley 1581 de 2012)", tipo: "booleano", requerido: true },
-      { clave: "declaraTitularidadIdea", etiqueta: "Declaración de titularidad de la idea de negocio por parte del equipo", tipo: "booleano", requerido: true },
-      { clave: "autorizaUsoEstadistico", etiqueta: "Autorización de uso de la información con fines de reporte institucional y estadístico, anonimizada", tipo: "booleano", requerido: true },
+      { clave: "autorizaTratamientoDatos", etiqueta: "Autorización de tratamiento de datos personales (Ley 1581 de 2012)", tipo: "seleccion", opciones: SI_NO, requerido: true },
+      { clave: "declaraTitularidadIdea", etiqueta: "Declaración de titularidad de la idea de negocio por parte del equipo", tipo: "textarea", requerido: true },
+      { clave: "autorizaUsoEstadistico", etiqueta: "Autorización de uso de la información con fines de reporte institucional y estadístico, de forma anonimizada", tipo: "seleccion", opciones: SI_NO, requerido: true },
       { clave: "compromisoConfidencialidad", etiqueta: "Compromiso de confidencialidad por parte de la Fundación y sus asesores", tipo: "textarea" },
       { clave: "observaciones", etiqueta: "Observaciones", tipo: "textarea" },
-      { clave: "firmaEmprendedor", etiqueta: "Firma del emprendedor", tipo: "texto", requerido: true },
-      { clave: "firmaAsesor", etiqueta: "Firma del asesor / responsable institucional", tipo: "texto", requerido: true },
+      { clave: "firmaEmprendedor", etiqueta: "Firma del emprendedor", tipo: "firma", firmante: "emprendedor", requerido: true },
+      { clave: "firmaAsesor", etiqueta: "Firma del asesor / responsable institucional", tipo: "firma", firmante: "asesor", requerido: true },
     ],
   },
   {
@@ -352,16 +392,17 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     responsableDiligencia: "Asesor",
     responsableRevisa: "Coordinador",
     orden: 13,
+    permiteMultiples: true,
     campos: [
       { clave: "fechaEvaluacion", etiqueta: "Fecha de evaluación", tipo: "fecha", requerido: true },
-      { clave: "problemaValidado", etiqueta: "Criterio 1: problema validado", tipo: "booleano", requerido: true },
+      { clave: "problemaValidado", etiqueta: "Criterio 1: problema validado", tipo: "seleccion", opciones: SI_NO, requerido: true },
       { clave: "evidenciaProblema", etiqueta: "Evidencia", tipo: "textarea" },
-      { clave: "modeloConsistente", etiqueta: "Criterio 2: modelo de negocio consistente", tipo: "booleano", requerido: true },
+      { clave: "modeloConsistente", etiqueta: "Criterio 2: modelo de negocio consistente", tipo: "seleccion", opciones: SI_NO, requerido: true },
       { clave: "evidenciaModelo", etiqueta: "Evidencia", tipo: "textarea" },
-      { clave: "equipoComprometido", etiqueta: "Criterio 3: equipo comprometido y activo", tipo: "booleano", requerido: true },
+      { clave: "equipoComprometido", etiqueta: "Criterio 3: equipo comprometido y activo", tipo: "seleccion", opciones: SI_NO, requerido: true },
       { clave: "evidenciaEquipo", etiqueta: "Evidencia", tipo: "textarea" },
-      { clave: "decision", etiqueta: "Decisión", tipo: "seleccion", requerido: true, opciones: ["Avanza a incubación", "Se mantiene en pre-incubación", "Se retira"] },
-      { clave: "firmaAsesor", etiqueta: "Asesor(a) que evalúa — firma", tipo: "texto", requerido: true },
+      { clave: "decision", etiqueta: "Decisión", tipo: "seleccion", requerido: true, opciones: ["Avanza a incubación", "Se mantiene en pre-incubación", "Se retira"], valorHabilitaAvance: "Avanza a incubación" },
+      { clave: "firmaAsesor", etiqueta: "Asesor(a) que evalúa — firma", tipo: "firma", firmante: "asesor", requerido: true },
     ],
   },
 
@@ -379,7 +420,9 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     responsableDiligencia: "Emprendedor, con el asesor",
     responsableRevisa: "Asesor",
     orden: 14,
+    permiteMultiples: true,
     campos: [
+      { clave: "gateVersion", etiqueta: "Versión / punto de control (gate) al que corresponde", tipo: "texto", ayuda: "Se diligencia a partir del BMC validado que se trae de pre-incubación (anexo 6.6) y se actualiza en cada gate." },
       { clave: "sociosClave", etiqueta: "Socios clave", tipo: "textarea" },
       { clave: "actividadesClave", etiqueta: "Actividades clave", tipo: "textarea" },
       { clave: "recursosClave", etiqueta: "Recursos clave", tipo: "textarea" },
@@ -431,12 +474,13 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     clave: "validacion_mvp",
     nombre: "Formato de validación de MVP (experimentos Lean Startup)",
     proposito: "Documentar hipótesis, experimentos y aprendizajes obtenidos.",
-    origenManual: "7·4",
+    origenManual: "7·4 / anexo 7.1",
     faseClave: "incubacion",
     momento: "Validación",
     responsableDiligencia: "Emprendedor",
     responsableRevisa: "Asesor",
     orden: 17,
+    permiteMultiples: true,
     campos: [
       { clave: "hipotesis", etiqueta: "Hipótesis a validar", tipo: "textarea", requerido: true },
       { clave: "experimento", etiqueta: "Experimento diseñado (qué se va a hacer)", tipo: "textarea", requerido: true },
@@ -471,18 +515,27 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     clave: "matriz_riesgos",
     nombre: "Matriz de riesgos",
     proposito: "Identificar y mitigar los riesgos críticos del negocio.",
-    origenManual: "7·6",
+    origenManual: "7·6 / anexo 7.2",
     faseClave: "incubacion",
     momento: "Estructuración",
     responsableDiligencia: "Asesor",
     responsableRevisa: "Coordinador",
     orden: 19,
     campos: [
-      { clave: "riesgoIdentificado", etiqueta: "Riesgo identificado", tipo: "textarea", requerido: true },
-      { clave: "tipoRiesgo", etiqueta: "Tipo", tipo: "seleccion", opciones: ["Mercado", "Financiero", "Legal", "Técnico"] },
-      { clave: "probabilidad", etiqueta: "Probabilidad", tipo: "seleccion", opciones: ["Alta", "Media", "Baja"] },
-      { clave: "impacto", etiqueta: "Impacto", tipo: "seleccion", opciones: ["Alto", "Medio", "Bajo"] },
-      { clave: "accionMitigacion", etiqueta: "Acción de mitigación", tipo: "textarea", requerido: true },
+      {
+        clave: "riesgos",
+        etiqueta: "Riesgos",
+        tipo: "tabla",
+        requerido: true,
+        filasIniciales: 5,
+        columnas: [
+          { clave: "riesgo", etiqueta: "Riesgo identificado", tipo: "textarea", requerido: true },
+          { clave: "tipo", etiqueta: "Tipo", tipo: "seleccion", opciones: ["Mercado", "Financiero", "Legal", "Técnico"], requerido: true },
+          { clave: "probabilidad", etiqueta: "Probabilidad", tipo: "seleccion", opciones: ["Alta", "Media", "Baja"], requerido: true },
+          { clave: "impacto", etiqueta: "Impacto", tipo: "seleccion", opciones: ["Alto", "Medio", "Bajo"], requerido: true },
+          { clave: "mitigacion", etiqueta: "Acción de mitigación", tipo: "textarea", requerido: true },
+        ],
+      },
     ],
   },
   {
@@ -496,9 +549,19 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     responsableRevisa: "Asesor",
     orden: 20,
     campos: [
-      { clave: "hito", etiqueta: "Hito", tipo: "texto", requerido: true },
-      { clave: "fechaMeta", etiqueta: "Fecha meta", tipo: "fecha", requerido: true },
-      { clave: "estado", etiqueta: "Estado", tipo: "seleccion", opciones: ["Pendiente", "En curso", "Cumplido", "Atrasado"] },
+      {
+        clave: "hitos",
+        etiqueta: "Hitos técnicos y comerciales",
+        tipo: "tabla",
+        requerido: true,
+        filasIniciales: 3,
+        columnas: [
+          { clave: "hito", etiqueta: "Hito", tipo: "texto", requerido: true },
+          { clave: "tipo", etiqueta: "Tipo", tipo: "seleccion", opciones: ["Técnico", "Comercial"] },
+          { clave: "fechaMeta", etiqueta: "Fecha meta", tipo: "fecha", requerido: true },
+          { clave: "estado", etiqueta: "Estado", tipo: "seleccion", opciones: ["Pendiente", "En curso", "Cumplido", "Atrasado"] },
+        ],
+      },
       { clave: "observaciones", etiqueta: "Observaciones", tipo: "textarea" },
     ],
   },
@@ -506,21 +569,31 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     clave: "kpis_impacto",
     nombre: "Formato de seguimiento de KPIs / indicadores de impacto",
     proposito: "Medir tracción: ventas, usuarios, empleos generados.",
-    origenManual: "7·8",
+    origenManual: "7·8 / anexo 7.3",
     faseClave: "incubacion",
     momento: "Seguimiento periódico",
     responsableDiligencia: "Asesor",
     responsableRevisa: "Coordinador",
     orden: 21,
+    permiteMultiples: true,
     campos: [
-      { clave: "ventasIngresos", etiqueta: "Ventas / ingresos — meta", tipo: "numero" },
-      { clave: "ventasIngresosResultado", etiqueta: "Ventas / ingresos — resultado del periodo", tipo: "numero" },
-      { clave: "usuariosActivos", etiqueta: "Usuarios o clientes activos — meta", tipo: "numero" },
-      { clave: "usuariosActivosResultado", etiqueta: "Usuarios o clientes activos — resultado del periodo", tipo: "numero" },
-      { clave: "empleosGenerados", etiqueta: "Empleos generados — meta", tipo: "numero" },
-      { clave: "empleosGeneradosResultado", etiqueta: "Empleos generados — resultado del periodo", tipo: "numero" },
-      { clave: "avanceMvpPct", etiqueta: "Avance del MVP (%)", tipo: "numero" },
-      { clave: "observaciones", etiqueta: "Observaciones", tipo: "textarea" },
+      {
+        clave: "indicadores",
+        etiqueta: "Indicadores de impacto",
+        tipo: "tabla",
+        filas: [
+          { clave: "ventas", etiqueta: "Ventas / ingresos" },
+          { clave: "usuarios", etiqueta: "Usuarios o clientes activos" },
+          { clave: "empleos", etiqueta: "Empleos generados" },
+          { clave: "avanceMvp", etiqueta: "Avance del MVP (%)" },
+        ],
+        columnas: [
+          { clave: "meta", etiqueta: "Meta", tipo: "numero", min: 0 },
+          { clave: "periodo1", etiqueta: "Resultado periodo 1", tipo: "numero", min: 0 },
+          { clave: "periodo2", etiqueta: "Resultado periodo 2", tipo: "numero", min: 0 },
+          { clave: "observaciones", etiqueta: "Observaciones", tipo: "texto" },
+        ],
+      },
     ],
   },
   {
@@ -533,6 +606,7 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     responsableDiligencia: "Asesor",
     responsableRevisa: "Coordinador",
     orden: 22,
+    permiteMultiples: true,
     campos: [
       { clave: "fechaSesion", etiqueta: "Fecha de la sesión", tipo: "fecha", requerido: true },
       { clave: "tipoAsesoria", etiqueta: "Tipo de asesoría", tipo: "seleccion", opciones: ["Técnica", "Financiera", "Legal", "Comercial"] },
@@ -595,20 +669,34 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     clave: "rubrica_pitch",
     nombre: "Rúbrica de evaluación de pitch",
     proposito: "Dar retroalimentación estructurada tras cada presentación.",
-    origenManual: "7·13",
+    origenManual: "7·13 / anexo 7.4",
     faseClave: "incubacion",
     momento: "Eventos de pitch (ej. Pitch MEUNE)",
     responsableDiligencia: "Jurado / asesor evaluador",
     responsableRevisa: "Coordinador",
     orden: 26,
+    permiteMultiples: true,
     campos: [
-      { clave: "claridadProblemaSolucion", etiqueta: "Claridad del problema y la solución (1-5)", tipo: "numero", requerido: true },
-      { clave: "validacionEvidencia", etiqueta: "Validación / evidencia presentada (1-5)", tipo: "numero", requerido: true },
-      { clave: "modeloViabilidad", etiqueta: "Modelo de negocio y viabilidad financiera (1-5)", tipo: "numero", requerido: true },
-      { clave: "equipoEmprendedor", etiqueta: "Equipo emprendedor (1-5)", tipo: "numero", requerido: true },
-      { clave: "calidadPresentacion", etiqueta: "Calidad de la presentación (pitch deck y oralidad) (1-5)", tipo: "numero", requerido: true },
-      { clave: "observaciones", etiqueta: "Observaciones", tipo: "textarea" },
-      { clave: "recomendacion", etiqueta: "Recomendación", tipo: "textarea" },
+      { clave: "evento", etiqueta: "Evento de pitch", tipo: "texto", ayuda: "Ej. Pitch MEUNE — una rúbrica por cada presentación." },
+      {
+        clave: "criterios",
+        etiqueta: "Criterios de evaluación",
+        tipo: "tabla",
+        requerido: true,
+        filas: [
+          { clave: "claridad", etiqueta: "Claridad del problema y la solución" },
+          { clave: "validacion", etiqueta: "Validación / evidencia presentada" },
+          { clave: "modelo", etiqueta: "Modelo de negocio y viabilidad financiera" },
+          { clave: "equipo", etiqueta: "Equipo emprendedor" },
+          { clave: "presentacion", etiqueta: "Calidad de la presentación (pitch deck y oralidad)" },
+        ],
+        columnas: [
+          { clave: "puntaje", etiqueta: "Puntaje (1-5)", ...PUNTAJE_1_5, requerido: true },
+          { clave: "observaciones", etiqueta: "Observaciones", tipo: "textarea" },
+          { clave: "recomendacion", etiqueta: "Recomendación", tipo: "textarea" },
+        ],
+      },
+      { clave: "puntajeTotal", etiqueta: "Puntaje total (máx. 25)", tipo: "total", sumaDe: { tabla: "criterios", columna: "puntaje" }, max: 25 },
     ],
   },
   {
@@ -621,6 +709,7 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     responsableDiligencia: "Asesor",
     responsableRevisa: "Coordinador",
     orden: 27,
+    permiteMultiples: true,
     campos: [
       { clave: "convocatoria", etiqueta: "Convocatoria (ej. Fondo Emprender, CONPES 4130)", tipo: "texto", requerido: true },
       { clave: "fechaPostulacion", etiqueta: "Fecha de postulación", tipo: "fecha" },
@@ -629,18 +718,43 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     ],
   },
   {
+    clave: "transito_salida_incubacion",
+    nombre: "Formato de tránsito de fase (gate de salida de incubación)",
+    proposito: "Evaluar si el emprendimiento gradúa, continúa en incubación o se retira.",
+    origenManual: "anexo 7.5",
+    faseClave: "incubacion",
+    momento: "Salida de incubación",
+    responsableDiligencia: "Asesor",
+    responsableRevisa: "Coordinador",
+    orden: 28,
+    permiteMultiples: true,
+    campos: [
+      { clave: "fechaEvaluacion", etiqueta: "Fecha de evaluación", tipo: "fecha", requerido: true },
+      { clave: "modeloValidado", etiqueta: "Criterio 1: modelo de negocio validado con evidencia de mercado", tipo: "seleccion", opciones: SI_NO, requerido: true },
+      { clave: "evidenciaModelo", etiqueta: "Evidencia", tipo: "textarea" },
+      { clave: "indicadoresFinancieros", etiqueta: "Criterio 2: indicadores financieros mínimos alcanzados", tipo: "seleccion", opciones: SI_NO, requerido: true },
+      { clave: "evidenciaFinanciera", etiqueta: "Evidencia", tipo: "textarea" },
+      { clave: "equipoAutonomo", etiqueta: "Criterio 3: equipo con capacidad de sostener el negocio de forma autónoma", tipo: "seleccion", opciones: SI_NO, requerido: true },
+      { clave: "evidenciaEquipo", etiqueta: "Evidencia", tipo: "textarea" },
+      { clave: "decision", etiqueta: "Decisión", tipo: "seleccion", requerido: true, opciones: ["Gradúa", "Continúa en incubación", "Se retira"], valorHabilitaAvance: "Gradúa" },
+      { clave: "firmaAsesor", etiqueta: "Asesor(a) que evalúa — firma", tipo: "firma", firmante: "asesor", requerido: true },
+    ],
+  },
+  {
     clave: "encuesta_satisfaccion",
     nombre: "Encuesta de satisfacción del emprendedor",
     proposito: "Evaluar la calidad del acompañamiento recibido.",
-    origenManual: "7·15",
+    origenManual: "7·15 / anexo 7.6",
     faseClave: "incubacion",
-    momento: "Cierre de fase",
+    momento: "Cierre de fase (pre-incubación e incubación)",
     responsableDiligencia: "Emprendedor",
     responsableRevisa: "Coordinador",
-    orden: 28,
+    orden: 29,
+    permiteMultiples: true,
+    transversal: true,
     campos: [
       { clave: "faseCursada", etiqueta: "Fase cursada", tipo: "seleccion", opciones: ["Pre-incubación", "Incubación"] },
-      { clave: "calificacionGeneral", etiqueta: "Calificación general del acompañamiento (1-5)", tipo: "numero", requerido: true },
+      { clave: "calificacionGeneral", etiqueta: "Calificación general del acompañamiento (1-5)", ...PUNTAJE_1_5, requerido: true },
       { clave: "metodologiaUtil", etiqueta: "¿La metodología usada le fue útil?", tipo: "seleccion", opciones: SI_NO },
       { clave: "porQueMetodologia", etiqueta: "¿Por qué?", tipo: "textarea" },
       { clave: "asesorCumplioTiempos", etiqueta: "¿El asesor cumplió los tiempos y compromisos?", tipo: "seleccion", opciones: SI_NO },
@@ -657,12 +771,12 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     momento: "Cierre",
     responsableDiligencia: "Asesor",
     responsableRevisa: "Coordinador",
-    orden: 29,
+    orden: 30,
     campos: [
       { clave: "fechaCierre", etiqueta: "Fecha de cierre de la ruta", tipo: "fecha", requerido: true },
       { clave: "resumenRecorrido", etiqueta: "Resumen del recorrido longitudinal", tipo: "textarea", requerido: true },
       { clave: "decisionFinal", etiqueta: "Decisión final", tipo: "seleccion", opciones: ["Gradúa", "Continúa en incubación", "Se retira"] },
-      { clave: "firmaCoordinador", etiqueta: "Firma del coordinador de la ruta", tipo: "texto" },
+      { clave: "firmaCoordinador", etiqueta: "Firma del coordinador de la ruta", tipo: "firma", firmante: "asesor" },
     ],
   },
   {
@@ -674,7 +788,8 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
     momento: "Post-cierre (opcional)",
     responsableDiligencia: "Asesor",
     responsableRevisa: "Coordinador",
-    orden: 30,
+    orden: 31,
+    permiteMultiples: true,
     campos: [
       { clave: "fechaSeguimiento", etiqueta: "Fecha de seguimiento", tipo: "fecha", requerido: true },
       { clave: "estadoNegocio", etiqueta: "Estado actual del negocio", tipo: "texto" },
@@ -682,5 +797,30 @@ export const INSTRUMENTOS_SEED: InstrumentoSeed[] = [
       { clave: "empleosActuales", etiqueta: "Empleos actuales", tipo: "numero" },
       { clave: "observaciones", etiqueta: "Observaciones", tipo: "textarea" },
     ],
+  },
+];
+
+export interface ReglaAvanceSeed {
+  nombre: string;
+  faseOrigenClave: string;
+  faseDestinoClave: string;
+  instrumentosClaves: string[];
+}
+
+// Manual §5.2: el formato de tránsito de fase es el gate obligatorio. La
+// regla exige además que la última evaluación diga "Avanza a incubación" /
+// "Gradúa" y que esté firmada por el asesor (ver src/lib/reglasAvance.ts).
+export const REGLAS_AVANCE_SEED: ReglaAvanceSeed[] = [
+  {
+    nombre: "Gate pre-incubación → incubación (Manual §5.2, anexo 6.13)",
+    faseOrigenClave: "pre_incubacion",
+    faseDestinoClave: "incubacion",
+    instrumentosClaves: ["transito_pre_incubacion_incubacion"],
+  },
+  {
+    nombre: "Gate de salida de incubación (Manual anexo 7.5)",
+    faseOrigenClave: "incubacion",
+    faseDestinoClave: "egreso",
+    instrumentosClaves: ["transito_salida_incubacion"],
   },
 ];

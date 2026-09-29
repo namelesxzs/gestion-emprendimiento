@@ -37,7 +37,7 @@ export function NavBar() {
   const links = session?.user.rol === "EMPRENDEDOR" ? LINKS_EMPRENDEDOR : LINKS;
 
   return (
-    <nav>
+    <nav className="no-print">
       {/* Franja superior institucional */}
       <div style={{ backgroundColor: "var(--brand-header)" }}>
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-1.5">

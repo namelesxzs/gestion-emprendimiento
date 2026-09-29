@@ -127,8 +127,11 @@ corrigieron todavía).
       `/configuracion`, `/ruta`, motor de formularios genérico, reglas de avance)
       según el Manual de Formatos y Metodologías de la Ruta de Emprendimiento
       (MEUNE-FUMC) — ver auditoría "Manual Ruta de Emprendimiento FUMC"
-- [ ] Fase 12 — Entidades núcleo: `Cohorte`, equipo emprendedor, ficha de
-      caracterización completa (sede, tipo de innovación, madurez, problema)
+- [x] Fase 12 — Entidades núcleo: `Cohorte` (+ pestaña en `/configuracion`,
+      panel "por cohorte" en indicadores), `IntegranteEquipo` (equipo emprendedor
+      en el detalle de `/emprendedores`), ficha de caracterización completa
+      (sede, programa, facultad, tipo de innovación, madurez, problema,
+      descripción de la idea, canal de postulación)
 - [ ] Fase 13 — Activar primero: rúbrica de selección, consentimiento Ley 1581,
       bitácora completa, acta de compromiso, lienzos (BMC/VPC/DOFA/mapa de
       empatía/Customer Discovery/Design Thinking)

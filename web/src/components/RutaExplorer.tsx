@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { FaseRow, InstrumentoRow } from "@/lib/queries";
 import { Card } from "./Card";
 
@@ -12,7 +13,9 @@ import { Card } from "./Card";
 export function RutaExplorer({ fases, instrumentos }: { fases: FaseRow[]; instrumentos: InstrumentoRow[] }) {
   const [faseId, setFaseId] = useState<string | null>(fases[0]?.id ?? null);
   const faseActiva = fases.find((f) => f.id === faseId) ?? null;
-  const instrumentosFase = instrumentos.filter((i) => i.faseId === faseId);
+  // Los transversales (bitácora 6.10, encuesta 7.6) aplican en todas las
+  // fases, así su anexo esté en una sola.
+  const instrumentosFase = instrumentos.filter((i) => i.faseId === faseId || i.transversal);
 
   if (fases.length === 0) {
     return (
@@ -53,15 +56,37 @@ export function RutaExplorer({ fases, instrumentos }: { fases: FaseRow[]; instru
             <ul className="flex flex-col gap-3">
               {instrumentosFase.map((i) => (
                 <li key={i.id} className="rounded-md border p-3 text-sm" style={{ borderColor: "var(--border-hairline)" }}>
-                  <p className="font-medium" style={{ color: "var(--text-primary)" }}>
-                    {i.nombre}
-                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-medium" style={{ color: "var(--text-primary)" }}>
+                      {i.origenManual && (
+                        <span className="mr-2 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
+                          {i.origenManual}
+                        </span>
+                      )}
+                      {i.nombre}
+                      {i.transversal && (
+                        <span className="ml-2 text-xs font-bold uppercase" style={{ color: "var(--brand-primary)" }}>
+                          transversal
+                        </span>
+                      )}
+                    </p>
+                    <Link
+                      href={`/formatos/${i.clave}`}
+                      target="_blank"
+                      className="text-xs font-bold uppercase tracking-wide"
+                      style={{ color: "var(--brand-primary)" }}
+                    >
+                      Ver formato
+                    </Link>
+                  </div>
                   <p className="mt-0.5" style={{ color: "var(--text-secondary)" }}>
                     {i.proposito}
                   </p>
                   <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
                     {i.momento ?? "—"} · diligencia: {i.responsableDiligencia ?? "—"} · revisa:{" "}
                     {i.responsableRevisa ?? "—"}
+                    {i.plazoRevisionDias && ` (plazo ${i.plazoRevisionDias} días)`}
+                    {i.permiteMultiples && " · se diligencia varias veces"}
                   </p>
                 </li>
               ))}

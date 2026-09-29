@@ -6,7 +6,7 @@ const mockAuth = vi.fn();
 vi.mock("@/auth", () => ({ auth: () => mockAuth() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-const { editarEmprendedor } = await import("./actions");
+const { editarEmprendedor, agregarIntegranteEquipo, eliminarIntegranteEquipo } = await import("./actions");
 
 async function crearEmprendedorDeTest(etapa = "Descubrir") {
   return prisma.emprendedor.create({
@@ -108,5 +108,77 @@ describe("editarEmprendedor — sustento documental por etapa", () => {
     expect(r.success).toBe(true);
     const actualizado = await prisma.emprendedor.findUnique({ where: { id: emprendedor.id } });
     expect(actualizado?.etapa).toBe("Incubar");
+  });
+});
+
+async function sesionDocenteReal() {
+  // La auditoría exige un usuarioId real (FK a Usuario) — sesionDocente()
+  // usa un id de mentira que solo sirve para pruebas que no verifican
+  // AuditLog.
+  const docente = await prisma.usuario.create({
+    data: { nombre: "Docente Real", correo: `docente-real-${Math.random()}@test.com`, passwordHash: "x", rol: "DOCENTE" },
+  });
+  mockAuth.mockResolvedValue({ user: { id: docente.id, rol: "DOCENTE" as const, emprendedorId: null, name: docente.nombre } });
+  return docente;
+}
+
+describe("agregarIntegranteEquipo / eliminarIntegranteEquipo (Manual 6.1)", () => {
+  it("agrega un integrante y lo audita", async () => {
+    await sesionDocenteReal();
+    const emprendedor = await crearEmprendedorDeTest();
+
+    const fd = new FormData();
+    fd.set("emprendedorId", emprendedor.id);
+    fd.set("nombre", "María Pérez");
+    fd.set("rolEquipo", "CTO");
+    fd.set("programaAcademico", "Ingeniería de Sistemas");
+
+    const r = await agregarIntegranteEquipo({}, fd);
+
+    expect(r.success).toBe(true);
+    const integrantes = await prisma.integranteEquipo.findMany({ where: { emprendedorId: emprendedor.id } });
+    expect(integrantes).toHaveLength(1);
+    expect(integrantes[0].nombre).toBe("María Pérez");
+    expect(integrantes[0].rolEquipo).toBe("CTO");
+
+    const auditLog = await prisma.auditLog.findFirst({
+      where: { entidad: "IntegranteEquipo", accion: "CREATE" },
+    });
+    expect(auditLog).not.toBeNull();
+  });
+
+  it("rechaza un integrante sin nombre", async () => {
+    const emprendedor = await crearEmprendedorDeTest();
+
+    const fd = new FormData();
+    fd.set("emprendedorId", emprendedor.id);
+    fd.set("nombre", "   ");
+
+    const r = await agregarIntegranteEquipo({}, fd);
+
+    expect(r.error).toBeTruthy();
+    const integrantes = await prisma.integranteEquipo.findMany({ where: { emprendedorId: emprendedor.id } });
+    expect(integrantes).toHaveLength(0);
+  });
+
+  it("elimina un integrante existente y lo audita", async () => {
+    await sesionDocenteReal();
+    const emprendedor = await crearEmprendedorDeTest();
+    const integrante = await prisma.integranteEquipo.create({
+      data: { emprendedorId: emprendedor.id, nombre: "Juan Gómez" },
+    });
+
+    const fd = new FormData();
+    fd.set("id", integrante.id);
+
+    const r = await eliminarIntegranteEquipo({}, fd);
+
+    expect(r.success).toBe(true);
+    expect(await prisma.integranteEquipo.findUnique({ where: { id: integrante.id } })).toBeNull();
+
+    const auditLog = await prisma.auditLog.findFirst({
+      where: { entidad: "IntegranteEquipo", accion: "DELETE" },
+    });
+    expect(auditLog).not.toBeNull();
   });
 });

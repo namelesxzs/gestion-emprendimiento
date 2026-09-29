@@ -95,8 +95,14 @@ async function main() {
   await prisma.acompanamiento.deleteMany();
   await prisma.reunion.deleteMany();
   await prisma.documento.deleteMany();
+  // InstrumentoRespuesta e IntegranteEquipo cuelgan de un Emprendedor
+  // puntual — se borran junto con los emprendedores de ejemplo. ReglaAvance
+  // y Cohorte NO se tocan aquí: son configuración real del Administrador,
+  // no datos de ejemplo (mismo criterio que el catálogo, ver seedCatalogo).
+  await prisma.instrumentoRespuesta.deleteMany();
   await prisma.solicitudRestablecimiento.deleteMany();
   await prisma.importRun.deleteMany();
+  await prisma.integranteEquipo.deleteMany();
   await prisma.emprendedor.deleteMany();
   await prisma.usuario.deleteMany();
 

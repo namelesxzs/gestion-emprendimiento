@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import type { Acompanamiento, Documento, Emprendedor, Etapa, EstadoEmprendedor, Reunion } from "@/lib/types";
+import type { Acompanamiento, Cohorte, Documento, Emprendedor, Etapa, EstadoEmprendedor, IntegranteEquipo as IntegranteEquipoT, Reunion } from "@/lib/types";
 import type { FaseRow, InstrumentoRow, RespuestaInstrumentoRowConEmprendedor } from "@/lib/queries";
 import { InstrumentosCatalogo } from "./InstrumentosCatalogo";
+import { IntegrantesEquipo } from "./IntegrantesEquipo";
 import { ETAPA_ORDER, getAcompanamientosByEmprendedor, getReunionesByEmprendedor } from "@/lib/view";
 import { EmprendedoresTable } from "./EmprendedoresTable";
 import { FilterChip } from "./FilterChip";
@@ -31,6 +32,8 @@ export function EmprendedoresExplorer({
   fases,
   instrumentos,
   respuestasInstrumento,
+  cohortes,
+  integrantesEquipo,
 }: {
   rows: Row[];
   acompanamientos: Acompanamiento[];
@@ -40,6 +43,8 @@ export function EmprendedoresExplorer({
   fases: FaseRow[];
   instrumentos: InstrumentoRow[];
   respuestasInstrumento: RespuestaInstrumentoRowConEmprendedor[];
+  cohortes: Cohorte[];
+  integrantesEquipo: IntegranteEquipoT[];
 }) {
   const [etapaFilter, setEtapaFilter] = useState<Set<Etapa>>(new Set(ETAPA_ORDER));
   const [estadoFilter, setEstadoFilter] = useState<Set<EstadoEmprendedor>>(
@@ -88,6 +93,9 @@ export function EmprendedoresExplorer({
   const respuestasSeleccionado = selected
     ? respuestasInstrumento.filter((r) => r.emprendedorId === selected.id)
     : [];
+  const integrantesSeleccionado = selected
+    ? integrantesEquipo.filter((i) => i.emprendedorId === selected.id)
+    : [];
   const ultimoAcompanamiento = acompanamientosSeleccionado[0];
 
   const exportarHref = `/api/exportar/emprendedores?etapas=${[...etapaFilter].join(",")}&estados=${[...estadoFilter].join(",")}`;
@@ -114,7 +122,9 @@ export function EmprendedoresExplorer({
         )}
       </div>
 
-      {showForm && puedeRegistrar && <NuevoEmprendedorForm onDone={() => setShowForm(false)} fases={fases} />}
+      {showForm && puedeRegistrar && (
+        <NuevoEmprendedorForm onDone={() => setShowForm(false)} fases={fases} cohortes={cohortes} />
+      )}
 
       <Card title="Filtros">
         <div className="flex flex-col gap-3">
@@ -163,7 +173,12 @@ export function EmprendedoresExplorer({
       </Card>
 
       {selected && showEditForm ? (
-        <EditarEmprendedorForm emprendedor={selected} onDone={() => setShowEditForm(false)} fases={fases} />
+        <EditarEmprendedorForm
+          emprendedor={selected}
+          onDone={() => setShowEditForm(false)}
+          fases={fases}
+          cohortes={cohortes}
+        />
       ) : selected ? (
         <Card
           title={selected.nombre}
@@ -239,6 +254,58 @@ export function EmprendedoresExplorer({
               </div>
             </div>
 
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: "var(--brand-primary)" }}>
+                Ficha de caracterización
+              </p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+                <div>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Cohorte</p>
+                  <p style={{ color: "var(--text-secondary)" }}>{selected.cohorteNombre ?? "Sin asignar"}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Sede</p>
+                  <p style={{ color: "var(--text-secondary)" }}>{selected.sede ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Tipo de innovación</p>
+                  <p style={{ color: "var(--text-secondary)" }}>{selected.tipoInnovacion ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Madurez</p>
+                  <p style={{ color: "var(--text-secondary)" }}>{selected.madurez ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Programa académico</p>
+                  <p style={{ color: "var(--text-secondary)" }}>{selected.programaAcademico ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Facultad</p>
+                  <p style={{ color: "var(--text-secondary)" }}>{selected.facultad ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Canal de postulación</p>
+                  <p style={{ color: "var(--text-secondary)" }}>{selected.canalPostulacion ?? "—"}</p>
+                </div>
+              </div>
+              {(selected.problema || selected.descripcionIdea) && (
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {selected.problema && (
+                    <div>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>Problema que busca resolver</p>
+                      <p style={{ color: "var(--text-secondary)" }}>{selected.problema}</p>
+                    </div>
+                  )}
+                  {selected.descripcionIdea && (
+                    <div>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>Descripción de la idea</p>
+                      <p style={{ color: "var(--text-secondary)" }}>{selected.descripcionIdea}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {ultimoAcompanamiento ? (
               <div
                 className="rounded-md border p-3 text-sm"
@@ -261,6 +328,14 @@ export function EmprendedoresExplorer({
       ) : null}
 
       {selected && (
+        <IntegrantesEquipo
+          emprendedorId={selected.id}
+          integrantes={integrantesSeleccionado}
+          puedeEditar={puedeRegistrar}
+        />
+      )}
+
+      {selected && (
         <DocumentosEtapa
           emprendedorId={selected.id}
           etapaActual={selected.etapa}
@@ -275,7 +350,7 @@ export function EmprendedoresExplorer({
           emprendedorId={selected.id}
           instrumentos={instrumentos}
           respuestas={respuestasSeleccionado}
-          puedeDiligenciar={puedeRegistrar}
+          rol={session?.user.rol ?? "COORDINADOR"}
         />
       )}
     </div>
